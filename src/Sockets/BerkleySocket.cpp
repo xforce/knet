@@ -34,8 +34,10 @@
 
 namespace keksnl
 {
+#ifdef WIN32
 	WSADATA wsaData;
-		
+#endif
+	
 	CBerkleySocket::CBerkleySocket()
 	{
 // NOTE: this will later be moved so dont care atm
@@ -60,6 +62,7 @@ namespace keksnl
 			sentLen = sendto(m_Socket, pData, length, 0, (const sockaddr*)&remoteSystem.address.addr4, sizeof(remoteSystem.address.addr4));
 			if (sentLen <= -1)
 			{
+#ifdef WIN32
 				int errCode = WSAGetLastError();
 
 				LPSTR errString = NULL;
@@ -69,6 +72,7 @@ namespace keksnl
 				printf("\nError code %d:  %s\n\n", errCode, errString);
 
 				LocalFree(errString); // if you don't do this, you will get an
+#endif
 			}
 		}
 		while (sentLen == 0);

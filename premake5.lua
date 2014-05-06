@@ -1,5 +1,5 @@
 solution "KeksNL"
-		configurations { "Debug KeksFramework", "Release KeksFramework" }
+		configurations { "Debug_KeksFramework", "Release_KeksFramework" }
 		
 		flags { "StaticRuntime", "No64BitChecks", "Symbols" }
 		nativewchar "Off"
@@ -35,6 +35,16 @@ solution "KeksNL"
 			"src/Sockets/**.cpp", "include/Sockets/**.h",
 		}
 		
-		links { "ws2_32" }
+		configuration "vs*"
+			links { "ws2_32" }
+			defines
+			{
+				"_ITERATOR_DEBUG_LEVEL=0"
+			}
+
+		configuration "gmake"
+			buildoptions { "-std=c++11" }
+			buildoptions { "-pthread" }
+			linkoptions { "-pthread" }
 		
-		defines "COMPILING_NL"	
+		defines "COMPILING_NL"

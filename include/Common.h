@@ -119,6 +119,13 @@ if !defined(__GXX_EXPERIMENTAL_CXX0X__) || __GXX_EXPERIMENTAL_CXX0X__ != 1
 #ifdef WIN32
 #include <WinSock2.h> // Just to be sure that there will never be a fucking include guard error
 #include <Windows.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+typedef int SOCKET;
+
+#define sprintf_s(a, b, c) snprintf(a, sizeof(a), b, c)
 #endif
 
 // These are C++ standard includes so not platform specific

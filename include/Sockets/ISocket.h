@@ -65,8 +65,11 @@ namespace keksnl
 	};
 
 #define MAX_MTU_SIZE 1492
-
+#ifdef WIN32
 	typedef int socklen_t;
+#else
+	typedef unsigned int socklen_t;
+#endif
 #pragma endregion
 
 	/*
@@ -95,7 +98,7 @@ namespace keksnl
 		char data[MAX_MTU_SIZE];
 		int bytesRead;
 		SocketAddress remoteAddress;
-		std::chrono::system_clock::time_point timeStamp;
+		std::chrono::steady_clock::time_point timeStamp;
 		ISocket * pSocket = nullptr;
 
 		InternalRecvPacket()
