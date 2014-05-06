@@ -91,7 +91,10 @@ public:
 		keksnl::CReliabilityLayer::ReliablePacket relPacket;
 		relPacket.Deserialize(bitStream);
 
-		//printf("Received on %p %s\n", this, relPacket.pData);
+#ifndef WIN32
+		printf("Received on %p %s\n", this, relPacket.pData);
+#endif
+		
 		char keks[100] = {0};
 		sprintf_s(keks, "Keks count %d", count++);
 		msg1 = keks;
@@ -244,8 +247,11 @@ int main()
 	sendFromPeerToPeer(*peer1, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
 
 	auto start = std::chrono::high_resolution_clock::now();
+	
+#ifdef WIN32
 	auto lastTitle = GetTickCount();
-
+#endif
+	
 	/*std::thread s1(send1);
 	std::thread s2(send2);*/
 
@@ -255,6 +261,7 @@ int main()
 		if (count != 0)
 			packetsPerSec = (float)count / (float)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count();
 
+#ifdef WIN32
 		if (lastTitle + 10 < GetTickCount())
 		{
 			char title[MAX_PATH] = {0};
@@ -263,6 +270,7 @@ int main()
 			SetConsoleTitle(title);
 			lastTitle = GetTickCount();
 		}
+#endif
 
 		
 		/*sendFromPeerToPeer(*peer2, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
