@@ -197,6 +197,11 @@ namespace keksnl
 		std::vector<unsigned short> acknowledgements;
 
 		CFlowControlHelper flowControlHelper;
+
+
+		/* Methods */
+		void SendACKs();
+
 	public:
 		CReliabilityLayer(ISocket * pSocket = nullptr);
 		virtual ~CReliabilityLayer();

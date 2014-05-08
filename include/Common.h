@@ -116,6 +116,8 @@ if !defined(__GXX_EXPERIMENTAL_CXX0X__) || __GXX_EXPERIMENTAL_CXX0X__ != 1
 #endif
 #endif
 
+#define NOMINMAX // WHY?!
+
 // at this point we can use C++11
 
 #ifdef WIN32

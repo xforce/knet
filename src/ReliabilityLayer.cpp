@@ -228,4 +228,85 @@ namespace keksnl
 	{
 		m_RemoteSocketAddress = socketAddress;
 	}
+
+
+	void CReliabilityLayer::SendACKs()
+	{
+		// Sort the unsorted vector so we can write the ranges
+		std::sort(acknowledgements.begin(), acknowledgements.end());
+
+		CBitStream bitStream;
+
+		int min = -1;
+		int max = 0;
+		int writtenTo = 0;
+		int writeCount = 0;
+
+		// Now write the range stuff to the bitstream
+		for (int i = 0; i < acknowledgements.size(); ++i)
+		{
+			if (acknowledgements[i] == (acknowledgements[i + 1] - 1))
+			{ /* (Next-1) equals current, so its a range */
+
+				if (min == -1)
+					min = acknowledgements[i];
+
+				max = acknowledgements[i];
+			}
+			else if (min == -1)
+			{ /* Not a range just a single value,
+			  because previous was not in row */
+
+				min = acknowledgements[i];
+				max = acknowledgements[i];
+
+				bitStream.Write<unsigned short>(min);
+				bitStream.Write<unsigned short>(max);
+
+				// Track the index we have written to
+				writtenTo = i;
+				writeCount++;
+
+				min = -1;
+			}
+			else
+			{
+				// First diff at next so write max to current and write info to bitStream
+				max = acknowledgements[i];
+				bitStream.Write<unsigned short>(min);
+				bitStream.Write<unsigned short>(max);
+
+				// Track the index we have written to
+				writtenTo = i;
+				writeCount++;
+
+				min = -1;
+			}
+		}
+
+		acknowledgements.clear();
+
+		keksnl::CBitStream out;
+
+		out.Write(writeCount);
+		out.Write(bitStream.Data(), bitStream.Size());
+
+		// Now send the bitStream
+		ReliablePacket packet;
+		packet.mHeader.isACK = true;
+		packet.mHeader.isNACK = false;
+		packet.reliability = PacketReliability::UNRELIABLE;
+		packet.mHeader.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
+		packet.pData = out.Data();
+		packet.dataLength = out.Size();
+
+		CBitStream bitStream(MAX_MTU_SIZE);
+		packet.Serialize(bitStream);
+
+		if (m_pSocket)
+			m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+		else
+			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+	}
 };

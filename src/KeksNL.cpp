@@ -218,6 +218,7 @@ void send2()
 #include <list>
 
 #include <chrono>
+
 int main()
 {
 #pragma region Speed Test
@@ -246,7 +247,131 @@ int main()
 	printf("Insert took %d ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-st).count());
 
 	st = std::chrono::high_resolution_clock::now();
-	printf("Insert took %d ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-st).count());
+	printf("Insert took %d ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - st).count());
+
+	std::vector<unsigned short> acknowledgements{1, 2, 3, 4, 20, 21, 22, 25, 27 , 29, 30};
+
+	// Sort the unsorted vector so we can write the ranges
+	std::sort(acknowledgements.begin(), acknowledgements.end());
+
+	keksnl::CBitStream bitStream;
+
+	int min = -1;
+	int max = 0;
+	int writtenTo = 0;
+	int writeCount = 0;
+
+	// Now write the range stuff to the bitstream
+	for (int i = 0; i < acknowledgements.size(); ++i)
+	{
+		if (acknowledgements[i] == (acknowledgements[i + 1] - 1))
+		{ /* (Next-1) equals current, so its a range */
+
+			if (min == -1)
+				min = acknowledgements[i];
+
+			max = acknowledgements[i];
+		}
+		else if (min == -1)
+		{ /* Not a range just a single value,
+		  because previous was not in row */
+			min = acknowledgements[i];
+			max = acknowledgements[i];
+			bitStream.Write<unsigned short>(min);
+			bitStream.Write<unsigned short>(max);
+
+			printf("Write -1 %d %d\n", acknowledgements[i], acknowledgements[i]);
+
+			// Track the index we have written to
+			writtenTo = i;
+			writeCount++;
+
+			min = -1;
+		}
+		else
+		{
+			// First diff at next so write max to current and write info to bitStream
+			max = acknowledgements[i];
+			bitStream.Write<unsigned short>(min);
+			bitStream.Write<unsigned short>(max);
+
+			printf("Write %d %d\n", min, max);
+
+			// Track the index we have written to
+			writtenTo = i;
+			writeCount++;
+
+			min = -1;
+		}
+	}
+
+	printf("\n\n");
+
+	acknowledgements.clear();
+
+	keksnl::CBitStream out;
+	out.Write(writeCount);
+	out.Write(bitStream.Data(), bitStream.Size());
+
+
+	writeCount = 0;
+	out.Read(writeCount);
+
+	for (int i = 0; i <= writeCount; ++i)
+	{
+		unsigned short min;
+		unsigned short max;
+		out.Read(min);
+		out.Read(max);
+
+		if (min < max)
+		{
+			for (int n = min; n <= max; ++n)
+				acknowledgements.push_back(n);
+		}
+		else if (min == max)
+			acknowledgements.push_back(min);
+	}
+
+
+	for (int i = 0; i < acknowledgements.size(); ++i)
+	{
+		if (acknowledgements[i] == (acknowledgements[i + 1] - 1))
+		{ /* (Next-1) equals current, so its a range */
+
+			if (min == -1)
+				min = acknowledgements[i];
+
+			max = acknowledgements[i];
+		}
+		else if (min == -1)
+		{ /* Not a range just a single value,
+		  because previous was not in row */
+			bitStream.Write(acknowledgements[i]);
+			bitStream.Write(acknowledgements[i]);
+
+			printf("Write -1 %d %d\n", acknowledgements[i], acknowledgements[i]);
+
+			// Track the index we have written to
+			writtenTo = i;
+			writeCount++;
+		}
+		else
+		{
+			// First diff at next so write max to current and write info to bitStream
+			max = acknowledgements[i];
+			bitStream.Write(min);
+			bitStream.Write(max);
+
+			printf("Write %d %d\n", min, max);
+
+			// Track the index we have written to
+			writtenTo = i;
+			writeCount++;
+
+			min = -1;
+		}
+	}
 
 #pragma endregion
 
