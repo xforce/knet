@@ -29,6 +29,7 @@
 */
 
 #include <ReliabilityLayer.h>
+#include <unordered_set>
 
 namespace keksnl
 {
@@ -36,6 +37,7 @@ namespace keksnl
 	CReliabilityLayer::CReliabilityLayer(ISocket * pSocket)
 		: m_pSocket(pSocket)
 	{
+		firstUnsentAck = firstUnsentAck.min();
 	}
 
 	CReliabilityLayer::~CReliabilityLayer()
@@ -109,6 +111,9 @@ namespace keksnl
 
 	void CReliabilityLayer::Process()
 	{
+		if (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now() - firstUnsentAck).count() >= 10000)
+			SendACKs();
+
 		// TODO: process all network and buffered stuff
 		InternalRecvPacket * pPacket = nullptr;
 		while ((pPacket = PopBufferedPacket()) && pPacket != nullptr)
@@ -144,6 +149,8 @@ namespace keksnl
 				if (dh.mHeader.isACK)
 				{
 					// Handle ACK Packet
+					printf("Got ACKs\n");
+					//__debugbreak();
 				}
 				else if (dh.mHeader.isNACK)
 				{
@@ -157,7 +164,21 @@ namespace keksnl
 						// ACK/NACK stuff for packet
 
 						// TODO: basic check if packet is valid
+						
+#if 0
+						if (acknowledgements.size() && acknowledgements.back() > dh.mHeader.sequenceNumber)
+							__debugbreak();
+
+						for (auto k : acknowledgements)
+							if (k == dh.mHeader.sequenceNumber)
+								__debugbreak();
+#endif
+
 						acknowledgements.push_back(dh.mHeader.sequenceNumber);
+
+
+						if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+							firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 					}
 
 					// Now process the packet
@@ -230,8 +251,13 @@ namespace keksnl
 	}
 
 
+
+
 	void CReliabilityLayer::SendACKs()
 	{
+		if (acknowledgements.size() == 0)
+			return;
+
 		// Sort the unsorted vector so we can write the ranges
 		std::sort(acknowledgements.begin(), acknowledgements.end());
 
@@ -260,8 +286,8 @@ namespace keksnl
 				min = acknowledgements[i];
 				max = acknowledgements[i];
 
-				bitStream.Write<unsigned short>(min);
-				bitStream.Write<unsigned short>(max);
+				bitStream.Write<SequenceNumberType>(min);
+				bitStream.Write<SequenceNumberType>(max);
 
 				// Track the index we have written to
 				writtenTo = i;
@@ -273,8 +299,8 @@ namespace keksnl
 			{
 				// First diff at next so write max to current and write info to bitStream
 				max = acknowledgements[i];
-				bitStream.Write<unsigned short>(min);
-				bitStream.Write<unsigned short>(max);
+				bitStream.Write<SequenceNumberType>(min);
+				bitStream.Write<SequenceNumberType>(max);
 
 				// Track the index we have written to
 				writtenTo = i;
@@ -282,9 +308,12 @@ namespace keksnl
 
 				min = -1;
 			}
+
+			if (bitStream.Size() >= 1000)
+				break;
 		}
 
-		acknowledgements.clear();
+		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo+1);
 
 		keksnl::CBitStream out;
 
@@ -301,12 +330,15 @@ namespace keksnl
 		packet.pData = out.Data();
 		packet.dataLength = out.Size();
 
-		CBitStream bitStream(MAX_MTU_SIZE);
-		packet.Serialize(bitStream);
+		CBitStream sendStream(MAX_MTU_SIZE);
+
+		packet.Serialize(sendStream);
 
 		if (m_pSocket)
-			m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+			m_pSocket->Send(m_RemoteSocketAddress, sendStream.Data(), sendStream.Size());
 		else
-			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+			;// printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+
+		firstUnsentAck = firstUnsentAck.min();
 	}
 };

@@ -69,12 +69,15 @@ namespace keksnl
 
 		int GetSequenceNumber()
 		{
-			if (sequenceNumber >= std::numeric_limits<unsigned short>::max())
+			if (sequenceNumber >= std::numeric_limits<decltype(sequenceNumber)>::max())
 				sequenceNumber = 0;
 
 			return sequenceNumber++;
 		}
 	};
+
+
+	typedef int SequenceNumberType;
 
 	class CReliabilityLayer
 	{
@@ -91,7 +94,7 @@ namespace keksnl
 		public:
 			bool isACK;
 			bool isNACK;
-			unsigned short sequenceNumber = 0xFFFF;
+			SequenceNumberType sequenceNumber = 0;
 
 
 			virtual void Serialize(CBitStream & bitStream)
@@ -194,9 +197,11 @@ namespace keksnl
 
 		std::vector<RemoteSystem> remoteList;
 
-		std::vector<unsigned short> acknowledgements;
+		std::vector<SequenceNumberType> acknowledgements;
 
 		CFlowControlHelper flowControlHelper;
+
+		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> firstUnsentAck;
 
 
 		/* Methods */
