@@ -49,17 +49,31 @@ namespace keksnl
 		MAX_EVENTS,
 	};
 
+	enum class PacketReliability : char
+	{
+		UNRELIABLE = 0,
+		RELIABLE,
+		RELIABLE_ORDERED,
+
+
+		MAX
+	};
+
 
 	class CFlowControlHelper
 	{
 	private:
-		int squenceNumber = 0;
+		int sequenceNumber = 0;
 
 	public:
-		CFlowControlHelper();
-		~CFlowControlHelper();
 
-		int GetSequenceNumber();
+		int GetSequenceNumber()
+		{
+			if (sequenceNumber >= std::numeric_limits<unsigned short>::max())
+				sequenceNumber = 0;
+
+			return sequenceNumber++;
+		}
 	};
 
 	class CReliabilityLayer
@@ -77,25 +91,33 @@ namespace keksnl
 		public:
 			bool isACK;
 			bool isNACK;
-
+			unsigned short sequenceNumber = 0xFFFF;
 
 
 			virtual void Serialize(CBitStream & bitStream)
 			{
 				bitStream.Write(isACK);
 				bitStream.Write(isNACK);
+
+				/* To save bandwith for ack/nack */
+				if (!isACK && !isNACK)
+					bitStream.Write(sequenceNumber);
 			}
 
 			virtual void Deserialize(CBitStream & bitStream)
 			{
 				bitStream.Read(isACK);
 				bitStream.Read(isNACK);
+
+				if (!isACK && !isNACK)
+					bitStream.Read(sequenceNumber);
 			}
 
 		};
 
 		class MessageHeader : public DatagramHeader
 		{
+
 		public:
 			virtual void Serialize(CBitStream & bitStream) override
 			{
@@ -119,8 +141,9 @@ namespace keksnl
 
 		public:
 			MessageHeader mHeader;
+			PacketReliability reliability = PacketReliability::UNRELIABLE;
 			
-			size_t dataLength = 0;
+			unsigned short dataLength = 0;
 			char * pData = nullptr;
 
 			~ReliablePacket()
@@ -132,6 +155,7 @@ namespace keksnl
 			void Serialize(CBitStream &bitStream)
 			{
 				mHeader.Serialize(bitStream);
+				bitStream.Write(reliability);
 				bitStream.Write(dataLength);
 				bitStream.Write(pData, dataLength);
 			}
@@ -139,6 +163,7 @@ namespace keksnl
 			void Deserialize(CBitStream &bitStream)
 			{
 				mHeader.Deserialize(bitStream);
+				bitStream.Read(reliability);
 				bitStream.Read(dataLength);
 				
 				if (pData)
@@ -169,12 +194,14 @@ namespace keksnl
 
 		std::vector<RemoteSystem> remoteList;
 
-		//CFlowControlHelper flowControlHelper;
+		std::vector<unsigned short> acknowledgements;
+
+		CFlowControlHelper flowControlHelper;
 	public:
 		CReliabilityLayer(ISocket * pSocket = nullptr);
 		virtual ~CReliabilityLayer();
 
-		void Send(char *data, size_t numberOfBitsToSend);
+		void Send(char *data, size_t numberOfBitsToSend, PacketReliability reliability);
 
 		void SetTimeout(const std::chrono::milliseconds &time);
 		const std::chrono::milliseconds& GetTimeout();

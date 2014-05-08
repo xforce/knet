@@ -139,7 +139,7 @@ public:
 
 	void Send(System &peer, const char * data, size_t len)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len));
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketReliability::RELIABLE);
 
 		//GetRelLayer()->GetSocket()->Send(peer.GetRelLayer()->GetSocket()->GetSocketAddress(), data, len);
 	}
@@ -214,8 +214,44 @@ void send2()
 	}
 }
 
+#include <climits>
+#include <list>
+
+#include <chrono>
 int main()
 {
+#pragma region Speed Test
+
+	std::random_device rd;
+	std::mt19937 rnd;
+	std::uniform_int_distribution<USHORT> rndShort;
+	std::vector<unsigned short> vec;
+
+	for (int i = 0; i < USHRT_MAX/10-1; ++i)
+	{
+		vec.push_back(rndShort(rnd));
+	}
+
+	auto st = std::chrono::high_resolution_clock::now();
+
+	std::vector<unsigned short> sortVec;
+
+	for (auto i : vec)
+	{
+		sortVec.push_back(i);
+	}
+
+	std::sort(sortVec.begin(), sortVec.end());
+
+	printf("Insert took %d ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-st).count());
+
+	st = std::chrono::high_resolution_clock::now();
+	printf("Insert took %d ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-st).count());
+
+#pragma endregion
+
+
+
 	peer1 = new Peer();
 	peer2 = new Peer();
 	peer3 = new Peer();

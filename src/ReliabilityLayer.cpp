@@ -85,17 +85,21 @@ namespace keksnl
 		return m_msTimeout;
 	}
 
-	void CReliabilityLayer::Send(char *data, size_t numberOfBitsToSend)
+	void CReliabilityLayer::Send(char *data, size_t numberOfBitsToSend, PacketReliability reliability)
 	{
-		CBitStream bitStream(MAX_MTU_SIZE);
+		// TODO: queue packets and send them at next process
+
 		ReliablePacket packet;
 		packet.mHeader.isACK = false;
 		packet.mHeader.isNACK = false;
+		packet.reliability = reliability;
+		packet.mHeader.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
 		packet.pData = data;
 		packet.dataLength = BITS_TO_BYTES(numberOfBitsToSend);
-		packet.Serialize(bitStream);
-		//bitStream.Write(data, numberOfBitsToSend << 3);
-		
+
+		CBitStream bitStream(MAX_MTU_SIZE);
+		packet.Serialize(bitStream);	
 		
 		if (m_pSocket)
 			m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
@@ -135,20 +139,28 @@ namespace keksnl
 				CBitStream bitStream{(unsigned char*)pPacket->data, pPacket->bytesRead, false};
 
 				// Handle Packet in Reliability Layer
-				DatagramHeader dh;
+				ReliablePacket dh;
 				dh.Deserialize(bitStream);
-				if (dh.isACK)
+				if (dh.mHeader.isACK)
 				{
 					// Handle ACK Packet
 				}
-				else if (dh.isNACK)
+				else if (dh.mHeader.isNACK)
 				{
 					// Handle NACK Packet
 				}
 				else
 				{
 					// Handle DATA Packet
+					if (dh.reliability >= PacketReliability::RELIABLE)
+					{
+						// ACK/NACK stuff for packet
 
+						// TODO: basic check if packet is valid
+						acknowledgements.push_back(dh.mHeader.sequenceNumber);
+					}
+
+					// Now process the packet
 				}
 
 				return true;
@@ -157,8 +169,7 @@ namespace keksnl
 
 
 		// New connection
-		//printf("New connection\n");
-
+		// Handle new connection event
 		if (eventHandler)
 		{
 			// Handle new connection 
