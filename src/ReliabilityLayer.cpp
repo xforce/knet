@@ -90,30 +90,14 @@ namespace keksnl
 	void CReliabilityLayer::Send(char *data, size_t numberOfBitsToSend, PacketReliability reliability)
 	{
 		// TODO: queue packets and send them at next process
-
-		ReliablePacket packet;
-		packet.mHeader.isACK = false;
-		packet.mHeader.isNACK = false;
-		packet.reliability = reliability;
-		packet.mHeader.sequenceNumber = flowControlHelper.GetSequenceNumber();
-
-		packet.pData = data;
-		packet.dataLength = BITS_TO_BYTES(numberOfBitsToSend);
-
-		CBitStream bitStream(MAX_MTU_SIZE);
-		packet.Serialize(bitStream);	
-		
-#if 0
+#if 1
 		BufferedSendPacket sendPacket(data, BITS_TO_BYTES(numberOfBitsToSend));
 		sendPacket.reliability = reliability;
 
 		sendBuffer.push_back(std::move(sendPacket));
-#endif
 
-		if (m_pSocket)
-			m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
-		else
-			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+		return;
+#endif
 
 		// Now move the data to resendList
 		// TODO
@@ -121,7 +105,7 @@ namespace keksnl
 
 	void CReliabilityLayer::Process()
 	{
-		if (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now() - firstUnsentAck).count() >= 10000)
+		if (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now() - firstUnsentAck).count() >= 5000)
 			SendACKs();
 
 		// TODO: process all network and buffered stuff
@@ -136,7 +120,7 @@ namespace keksnl
 			pPacket = nullptr;
 		}
 
-#if 0
+#if 1
 		CBitStream bitStream{MAX_MTU_SIZE};
 
 		DatagramHeader dh;
@@ -146,15 +130,35 @@ namespace keksnl
 
 		dh.Serialize(bitStream);
 
+		sendBuffer.shrink_to_fit();
+
 		// Send queued packets
 		for (auto &packet : sendBuffer)
 		{
+			/* TODO: Message number */
 			bitStream.Write(packet.reliability);
-			bitStream.Write(BITS_TO_BYTES(packet.bitLength));
+			bitStream.Write<unsigned short>(BITS_TO_BYTES(packet.bitLength));
 			bitStream.Write(packet.data, BITS_TO_BYTES(packet.bitLength));
+
+			if (bitStream.Size() >= MAX_MTU_SIZE)
+			{
+				if (m_pSocket)
+					m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+				bitStream.Reset();
+
+				dh.isACK = false;
+				dh.isNACK = false;
+				dh.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
+				dh.Serialize(bitStream);
+			}
 		}
 
-		if (m_pSocket)
+		if (sendBuffer.size())
+			;// printf("Sending %d bytes\n", bitStream.Size());
+
+		if (sendBuffer.size() && bitStream.Size() && m_pSocket)
 			m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 		sendBuffer.clear();
@@ -168,39 +172,50 @@ namespace keksnl
 		{
 			if (remoteSystem.address == pPacket->remoteAddress)
 			{
-				if (eventHandler)
-				{
-					eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
-					
-				}
+				CBitStream bitStream{(unsigned char*)pPacket->data, pPacket->bytesRead, true};
 
-				CBitStream bitStream{(unsigned char*)pPacket->data, pPacket->bytesRead, false};
+				//printf("Process %d bytes\n", pPacket->bytesRead);
 
 				// Handle Packet in Reliability Layer
-				ReliablePacket dh;
+				DatagramHeader dh;
 				dh.Deserialize(bitStream);
-				if (dh.mHeader.isACK)
+	
+				if (dh.isACK)
 				{
 					// Handle ACK Packet
 					printf("Got ACKs\n");
 
 				}
-				else if (dh.mHeader.isNACK)
+				else if (dh.isNACK)
 				{
 					// Handle NACK Packet
 				}
 				else
 				{
-					// Handle DATA Packet
-					if (dh.reliability >= PacketReliability::RELIABLE)
+					acknowledgements.push_back(dh.sequenceNumber);
+
+					ReliablePacket packet;
+					while (bitStream.ReadOffset() < BYTES_TO_BITS(bitStream.Size()))
 					{
-						// ACK/NACK stuff for packet
+						packet.Deserialize(bitStream);
 
-						// TODO: basic check if packet is valid
-						acknowledgements.push_back(dh.mHeader.sequenceNumber);
+						// Handle DATA Packet
+						if (packet.reliability >= PacketReliability::RELIABLE)
+						{
+							// ACK/NACK stuff for packet
 
-						if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
-							firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+							// TODO: basic check if packet is valid
+
+
+							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
+							if (eventHandler)
+							{
+								eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
+
+							}
+						}
 					}
 
 					// Now process the packet
@@ -280,10 +295,14 @@ namespace keksnl
 		if (acknowledgements.size() == 0)
 			return;
 
+		bool rerun = false;
+
+		acknowledgements.shrink_to_fit();
+
 		// Sort the unsorted vector so we can write the ranges
 		std::sort(acknowledgements.begin(), acknowledgements.end());
 
-		CBitStream bitStream(MAX_MTU_SIZE);
+		CBitStream bitStream;
 
 		int min = -1;
 		int max = 0;
@@ -332,12 +351,15 @@ namespace keksnl
 			}
 
 			if (bitStream.Size() >= 1000)
+			{
+				rerun = true;
 				break;
+			}
 		}
 
 		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo+1);
-
-		keksnl::CBitStream out(MAX_MTU_SIZE);
+		
+		keksnl::CBitStream out;
 
 		DatagramHeader dh;
 		dh.isACK = true;
@@ -352,5 +374,8 @@ namespace keksnl
 			m_pSocket->Send(m_RemoteSocketAddress, out.Data(), out.Size());
 
 		firstUnsentAck = firstUnsentAck.min();
+
+		if (rerun)
+			SendACKs();
 	}
 };

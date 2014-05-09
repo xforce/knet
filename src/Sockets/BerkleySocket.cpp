@@ -190,7 +190,9 @@ namespace keksnl
 			packet->pSocket = this;
 
 			if (eventHandler)
+			{
 				eventHandler.Call(SocketEvents::RECEIVE, packet);
+			}
 			else
 				delete packet;
 		}

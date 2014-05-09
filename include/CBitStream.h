@@ -63,6 +63,11 @@ namespace keksnl
 			bitsUsed = 0;
 		}
 
+		size_t ReadOffset()
+		{
+			return readOffset;
+		}
+
 		/*
 		* Checks for free bits and allocates the needed number of bytes to fit the data
 		*/

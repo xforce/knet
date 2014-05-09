@@ -60,10 +60,10 @@ namespace keksnl
 
 	CBitStream::CBitStream(unsigned char* _data, const int lengthInBytes, bool _copyData)
 	{
-		bitsUsed = lengthInBytes << 3;
+		bitsUsed = BYTES_TO_BITS(lengthInBytes);
 		readOffset = 0;
 		//copyData = _copyData;
-		bitsAllocated = lengthInBytes << 3;
+		bitsAllocated = BYTES_TO_BITS(lengthInBytes);
 
 		if (_copyData || 1==1)
 		{

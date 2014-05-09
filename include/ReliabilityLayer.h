@@ -174,7 +174,6 @@ namespace keksnl
 		bool selfAllocated = false;
 
 	public:
-		MessageHeader mHeader;
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
 
 		unsigned short dataLength = 0;
@@ -188,11 +187,6 @@ namespace keksnl
 
 		void Serialize(CBitStream &bitStream)
 		{
-			mHeader.Serialize(bitStream);
-
-			if (mHeader.isACK || mHeader.isNACK)
-				return;
-
 			bitStream.Write(reliability);
 			bitStream.Write(dataLength);
 			bitStream.Write(pData, dataLength);
@@ -200,11 +194,6 @@ namespace keksnl
 
 		void Deserialize(CBitStream &bitStream)
 		{
-			mHeader.Deserialize(bitStream);
-
-			if (mHeader.isACK || mHeader.isNACK)
-				return;
-
 			bitStream.Read(reliability);
 			bitStream.Read(dataLength);
 
@@ -226,44 +215,45 @@ namespace keksnl
 	class CReliabilityLayer
 	{
 	public:
-
+		
+		/* Types/structs used internally in Reliability Layer */
 		struct RemoteSystem
 		{
 			ISocket * pSocket = nullptr;
 			SocketAddress address;
 		};
 
-
-
-	
-
-		
-
 	private:
 		ISocket * m_pSocket = nullptr;
 		SocketAddress m_RemoteSocketAddress;
 
-		ISocket * m_pSender = nullptr;
-
-		std::chrono::milliseconds m_msTimeout = std::chrono::milliseconds(10000);
-
-		std::mutex bufferMutex;
-		std::queue<InternalRecvPacket*> bufferedPacketQueue;
+		CFlowControlHelper flowControlHelper;
 
 		EventHandler<ReliabilityEvents> eventHandler;
+
+		std::chrono::milliseconds m_msTimeout = std::chrono::milliseconds(10000);
+		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> firstUnsentAck;
+
+		std::mutex bufferMutex;
+
+
+		std::queue<InternalRecvPacket*> bufferedPacketQueue;
+
+		
 
 		std::vector<RemoteSystem> remoteList;
 
 		std::vector<SequenceNumberType> acknowledgements;
 
-		CFlowControlHelper flowControlHelper;
-
-		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> firstUnsentAck;
 
 		std::vector<BufferedSendPacket> sendBuffer;
 
+	private:
 		/* Methods */
 		void SendACKs();
+
+		
+		bool ProcessPacket(InternalRecvPacket *pPacket);
 
 	public:
 		CReliabilityLayer(ISocket * pSocket = nullptr);
@@ -271,10 +261,20 @@ namespace keksnl
 
 		void Send(char *data, size_t numberOfBitsToSend, PacketReliability reliability);
 
-		void SetTimeout(const std::chrono::milliseconds &time);
-		const std::chrono::milliseconds& GetTimeout();
-
 		void Process();
+
+		bool OnReceive(InternalRecvPacket *packet);
+
+		InternalRecvPacket* PopBufferedPacket();
+
+		decltype(eventHandler) &GetEventHandler()
+		{
+			return eventHandler;
+		}
+
+
+		/* Getters/Setters */
+
 
 		ISocket * GetSocket();
 		void SetSocket(ISocket * pSocket);
@@ -282,16 +282,19 @@ namespace keksnl
 		const SocketAddress & GetRemoteAddress();
 		void SetRemoteAddress(SocketAddress &socketAddress);
 
-		InternalRecvPacket* PopBufferedPacket();
 
-		bool ProcessPacket(InternalRecvPacket *pPacket);
+		//! Sets the timeout for the connections
+		/*!
+		\param[in] time The time in ms after a connection will be closed if no data was received
+		*/
+		void SetTimeout(const std::chrono::milliseconds &time);
 
-		bool OnReceive(InternalRecvPacket *packet);
+		//! Gets the timeout for the connections
+		/*!
+		\return The time after a connection will be closed if no data was received
+		*/
+		const std::chrono::milliseconds& GetTimeout();
 
-		decltype(eventHandler) &GetEventHandler()
-		{
-			return eventHandler;
-		}
 	};
 
 }

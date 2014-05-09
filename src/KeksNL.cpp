@@ -15,6 +15,10 @@ Peer *peer1;
 Peer *peer2;
 Peer *peer3;
 
+int countPerSec = 0;
+
+std::chrono::high_resolution_clock::time_point start;
+
 class Peer
 {
 private:
@@ -88,13 +92,18 @@ public:
 	bool HandlePacket(keksnl::InternalRecvPacket * packet)
 	{
 		keksnl::CBitStream bitStream((unsigned char*)packet->data, packet->bytesRead, true);
-		keksnl::ReliablePacket relPacket;
-		relPacket.Deserialize(bitStream);
+		//keksnl::ReliablePacket relPacket;
+		//relPacket.Deserialize(bitStream);
 
 #ifndef WIN32
 		printf("Received on %p %s\n", this, relPacket.pData);
 #endif
+
+		if (count == 100)
+			start = std::chrono::high_resolution_clock::now();
 		
+		countPerSec++;
+
 		char keks[100] = {0};
 		sprintf_s(keks, "Keks count %d", count++);
 		msg1 = keks;
@@ -154,65 +163,6 @@ public:
 };
 
 double packetsPerSec = 0;
-
-void send1()
-{
-	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
-	{
-		keksnl::CBitStream bitStream(MAX_MTU_SIZE);
-		keksnl::ReliablePacket packet;
-		packet.mHeader.isACK = false;
-		packet.mHeader.isNACK = false;
-		packet.pData = (char*)data;
-		packet.dataLength = BITS_TO_BYTES(numberOfBits);
-		packet.Serialize(bitStream);
-		//bitStream.Write(data, numberOfBitsToSend << 3);
-
-
-		if (sender.GetSocket())
-			sender.GetSocket()->Send(peer.GetSocket()->GetSocketAddress(), bitStream.Data(), bitStream.Size());
-		else
-			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
-	};
-	while (true)
-	{
-		sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		
-		sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		peer1->Process();
-	}
-}
-
-void send2()
-{
-	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
-	{
-		keksnl::CBitStream bitStream(MAX_MTU_SIZE);
-		keksnl::ReliablePacket packet;
-		packet.mHeader.isACK = false;
-		packet.mHeader.isNACK = false;
-		packet.pData = (char*)data;
-		packet.dataLength = BITS_TO_BYTES(numberOfBits);
-		packet.Serialize(bitStream);
-		//bitStream.Write(data, numberOfBitsToSend << 3);
-
-
-		if (sender.GetSocket())
-			sender.GetSocket()->Send(peer.GetSocket()->GetSocketAddress(), bitStream.Data(), bitStream.Size());
-		else
-			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
-	};
-	while (true)
-	{
-		peer2->Process();
-		sendFromPeerToPeer(*peer2, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		sendFromPeerToPeer(*peer2, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		sendFromPeerToPeer(*peer2, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		sendFromPeerToPeer(*peer2, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-
-	}
-}
 
 #include <climits>
 #include <list>
@@ -388,15 +338,18 @@ int main()
 
 	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
 	{
-		keksnl::CBitStream bitStream(MAX_MTU_SIZE);
-		keksnl::ReliablePacket packet;
-		packet.mHeader.isACK = false;
-		packet.mHeader.isNACK = false;
-		packet.pData = (char*)data;
-		packet.dataLength = BITS_TO_BYTES(numberOfBits);
-		packet.Serialize(bitStream);
-		//bitStream.Write(data, numberOfBitsToSend << 3);
+		keksnl::CBitStream bitStream{MAX_MTU_SIZE};
 
+		keksnl::DatagramHeader dh;
+		dh.isACK = false;
+		dh.isNACK = false;
+		dh.sequenceNumber = 0;
+
+		dh.Serialize(bitStream);
+
+		bitStream.Write(keksnl::PacketReliability::RELIABLE);
+		bitStream.Write<unsigned short>(BITS_TO_BYTES(numberOfBits));
+		bitStream.Write(data, BITS_TO_BYTES(numberOfBits));
 
 		if (sender.GetSocket())
 			sender.GetSocket()->Send(peer.GetSocket()->GetSocketAddress(), bitStream.Data(), bitStream.Size());
@@ -407,7 +360,7 @@ int main()
 	sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
 	sendFromPeerToPeer(*peer1, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
 
-	auto start = std::chrono::high_resolution_clock::now();
+	start = std::chrono::high_resolution_clock::now().min();
 	
 #ifdef WIN32
 	auto lastTitle = GetTickCount();
@@ -420,23 +373,27 @@ int main()
 	{
 
 		if (count != 0)
-			packetsPerSec = (float)count / (float)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count();
+			packetsPerSec = (float)count / (float)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
 #ifdef WIN32
-		if (lastTitle + 10 < GetTickCount())
+		//if (lastTitle + 10 < GetTickCount())
 		{
-			char title[MAX_PATH] = {0};
-			sprintf(title, "Packets per Second: %f\n", packetsPerSec);
+			if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() > 1000)
+			{
+				
+				char title[MAX_PATH] = {0};
+				sprintf(title, "Packets per Second sent by Socket: %d\n", countPerSec);
+				countPerSec = 0;
+				SetConsoleTitle(title);
+				lastTitle = GetTickCount();
 
-			SetConsoleTitle(title);
-			lastTitle = GetTickCount();
+				start = std::chrono::high_resolution_clock::now();
+			}
+		
 		}
 #endif
 
-		
-		/*sendFromPeerToPeer(*peer2, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		sendFromPeerToPeer(*peer1, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-		sendFromPeerToPeer(*peer3, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));*/
+		//peer1->Send(*peer2, "jfdlaksjöfsdjfalösdjfklajsdfklasdjfl", strlen("jfdlaksjöfsdjfalösdjfklajsdfklasdjfl"));
 
 		peer1->Process();
 		peer2->Process();
