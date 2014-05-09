@@ -37,6 +37,7 @@
 
 #include <mutex>
 #include <queue>
+#include <bitset>
 
 namespace keksnl 
 {
@@ -76,9 +77,152 @@ namespace keksnl
 		}
 	};
 
+	struct BufferedSendPacket
+	{
+		char * data = nullptr;
+		PacketReliability reliability;
+		size_t bitLength;
+
+		BufferedSendPacket(char * data, size_t length)
+		{
+			this->data = (char*)(malloc(length));
+			memcpy(this->data, data, length);
+			bitLength = BYTES_TO_BITS(length);
+		}
+
+		BufferedSendPacket(BufferedSendPacket &&other)
+		{
+			this->data = other.data;
+			this->reliability = other.reliability;
+			this->bitLength = other.bitLength;
+
+			other.data = nullptr;
+		}
+
+		~BufferedSendPacket()
+		{
+			if (data)
+				free(data);
+		}
+	};
 
 	typedef int SequenceNumberType;
 
+	class DatagramHeader
+	{
+	public:
+		bool isACK;
+		bool isNACK;
+		SequenceNumberType sequenceNumber = 0;
+
+
+		virtual void Serialize(CBitStream & bitStream)
+		{
+			bitStream.Write(isACK);
+			bitStream.Write(isNACK);
+
+			// Now fill to 1 byte to improve performance
+			// This can later be used for more information in the header
+			bitStream.Write0();
+			bitStream.Write0();
+			bitStream.Write0();
+			bitStream.Write0();
+			bitStream.Write0();
+			bitStream.Write0();
+
+			/* To save bandwith for ack/nack */
+			if (!isACK && !isNACK)
+				bitStream.Write(sequenceNumber);
+		}
+
+		virtual void Deserialize(CBitStream & bitStream)
+		{
+			bitStream.Read(isACK);
+			bitStream.Read(isNACK);
+			char ch{0};
+			bitStream.ReadBits(&ch, 6);
+
+			if (!isACK && !isNACK)
+				bitStream.Read(sequenceNumber);
+		}
+
+	};
+
+	class MessageHeader : public DatagramHeader
+	{
+
+	public:
+		virtual void Serialize(CBitStream & bitStream) override
+		{
+			DatagramHeader::Serialize(bitStream);
+
+			// Do our stuff
+		}
+
+		virtual void Deserialize(CBitStream & bitStream) override
+		{
+			DatagramHeader::Deserialize(bitStream);
+
+			// Do our stuff
+		}
+	};
+
+
+	struct ReliablePacket
+	{
+	private:
+		bool selfAllocated = false;
+
+	public:
+		MessageHeader mHeader;
+		PacketReliability reliability = PacketReliability::UNRELIABLE;
+
+		unsigned short dataLength = 0;
+		char * pData = nullptr;
+
+		~ReliablePacket()
+		{
+			if (pData && selfAllocated)
+				free(pData);
+		}
+
+		void Serialize(CBitStream &bitStream)
+		{
+			mHeader.Serialize(bitStream);
+
+			if (mHeader.isACK || mHeader.isNACK)
+				return;
+
+			bitStream.Write(reliability);
+			bitStream.Write(dataLength);
+			bitStream.Write(pData, dataLength);
+		}
+
+		void Deserialize(CBitStream &bitStream)
+		{
+			mHeader.Deserialize(bitStream);
+
+			if (mHeader.isACK || mHeader.isNACK)
+				return;
+
+			bitStream.Read(reliability);
+			bitStream.Read(dataLength);
+
+			if (pData)
+				free(pData);
+
+			pData = (char*)(malloc(dataLength));
+
+			selfAllocated = true;
+
+			bitStream.Read(pData, dataLength);
+		}
+
+
+	};
+
+	
+	
 	class CReliabilityLayer
 	{
 	public:
@@ -89,98 +233,11 @@ namespace keksnl
 			SocketAddress address;
 		};
 
-		class DatagramHeader
-		{
-		public:
-			bool isACK;
-			bool isNACK;
-			SequenceNumberType sequenceNumber = 0;
 
 
-			virtual void Serialize(CBitStream & bitStream)
-			{
-				bitStream.Write(isACK);
-				bitStream.Write(isNACK);
+	
 
-				/* To save bandwith for ack/nack */
-				if (!isACK && !isNACK)
-					bitStream.Write(sequenceNumber);
-			}
-
-			virtual void Deserialize(CBitStream & bitStream)
-			{
-				bitStream.Read(isACK);
-				bitStream.Read(isNACK);
-
-				if (!isACK && !isNACK)
-					bitStream.Read(sequenceNumber);
-			}
-
-		};
-
-		class MessageHeader : public DatagramHeader
-		{
-
-		public:
-			virtual void Serialize(CBitStream & bitStream) override
-			{
-				DatagramHeader::Serialize(bitStream);
-
-				// Do our stuff
-			}
-
-			virtual void Deserialize(CBitStream & bitStream) override
-			{
-				DatagramHeader::Deserialize(bitStream);
-
-				// Do our stuff
-			}
-		};
-
-		struct ReliablePacket
-		{
-		private:
-			bool selfAllocated = false;
-
-		public:
-			MessageHeader mHeader;
-			PacketReliability reliability = PacketReliability::UNRELIABLE;
-			
-			unsigned short dataLength = 0;
-			char * pData = nullptr;
-
-			~ReliablePacket()
-			{
-				if (pData && selfAllocated)
-					free(pData);
-			}
-
-			void Serialize(CBitStream &bitStream)
-			{
-				mHeader.Serialize(bitStream);
-				bitStream.Write(reliability);
-				bitStream.Write(dataLength);
-				bitStream.Write(pData, dataLength);
-			}
-
-			void Deserialize(CBitStream &bitStream)
-			{
-				mHeader.Deserialize(bitStream);
-				bitStream.Read(reliability);
-				bitStream.Read(dataLength);
-				
-				if (pData)
-					free(pData);
-
-				pData = (char*)(malloc(dataLength));
-
-				selfAllocated = true;
-
-				bitStream.Read(pData, dataLength);
-			}
-
-
-		};
+		
 
 	private:
 		ISocket * m_pSocket = nullptr;
@@ -203,6 +260,7 @@ namespace keksnl
 
 		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> firstUnsentAck;
 
+		std::vector<BufferedSendPacket> sendBuffer;
 
 		/* Methods */
 		void SendACKs();

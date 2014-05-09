@@ -57,6 +57,12 @@ namespace keksnl
 		CBitStream(unsigned char* _data, const int lengthInBytes, bool _copyData);
 		virtual ~CBitStream();
 
+		void Reset()
+		{
+			readOffset = 0;
+			bitsUsed = 0;
+		}
+
 		/*
 		* Checks for free bits and allocates the needed number of bytes to fit the data
 		*/
@@ -75,6 +81,13 @@ namespace keksnl
 		*/
 		void Write1();
 		void Write0();
+
+		inline bool ReadBit()
+		{
+			bool result = (pData[readOffset >> 3] & (0x80 >> (readOffset & 7))) != 0;
+			readOffset++;
+			return result;
+		}
 
 		bool WriteBits(const unsigned char *pData, size_t  numberOfBits);
 		bool Write(const unsigned char *pData, size_t size);
@@ -104,6 +117,15 @@ namespace keksnl
 			return Write((unsigned char*)&value, sizeof(T));
 		}
 
+		template<>
+		inline bool Write(const bool& value)
+		{
+			(value ? Write1() : Write0());
+			return true;
+		}
+
+		
+
 		bool ReadBits(char *pData, size_t  numberOfBits);
 		bool Read(char *pData, size_t size);
 
@@ -111,6 +133,13 @@ namespace keksnl
 		inline bool Read(T& value)
 		{
 			return Read((char*)&value, sizeof(T));
+		}
+
+		template<>
+		inline bool Read(bool &value)
+		{
+			value = ReadBit();
+			return true;
 		}
 
 		bool operator=(const CBitStream &right);

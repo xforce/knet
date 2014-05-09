@@ -88,7 +88,7 @@ public:
 	bool HandlePacket(keksnl::InternalRecvPacket * packet)
 	{
 		keksnl::CBitStream bitStream((unsigned char*)packet->data, packet->bytesRead, true);
-		keksnl::CReliabilityLayer::ReliablePacket relPacket;
+		keksnl::ReliablePacket relPacket;
 		relPacket.Deserialize(bitStream);
 
 #ifndef WIN32
@@ -160,7 +160,7 @@ void send1()
 	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
 	{
 		keksnl::CBitStream bitStream(MAX_MTU_SIZE);
-		keksnl::CReliabilityLayer::ReliablePacket packet;
+		keksnl::ReliablePacket packet;
 		packet.mHeader.isACK = false;
 		packet.mHeader.isNACK = false;
 		packet.pData = (char*)data;
@@ -189,7 +189,7 @@ void send2()
 	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
 	{
 		keksnl::CBitStream bitStream(MAX_MTU_SIZE);
-		keksnl::CReliabilityLayer::ReliablePacket packet;
+		keksnl::ReliablePacket packet;
 		packet.mHeader.isACK = false;
 		packet.mHeader.isNACK = false;
 		packet.pData = (char*)data;
@@ -389,7 +389,7 @@ int main()
 	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
 	{
 		keksnl::CBitStream bitStream(MAX_MTU_SIZE);
-		keksnl::CReliabilityLayer::ReliablePacket packet;
+		keksnl::ReliablePacket packet;
 		packet.mHeader.isACK = false;
 		packet.mHeader.isNACK = false;
 		packet.pData = (char*)data;
