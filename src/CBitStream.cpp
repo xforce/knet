@@ -300,6 +300,12 @@ namespace keksnl
 				&& Write((unsigned char*)str.c_str(), str.size()));
 	}
 
+
+	void CBitStream::SetReadOffset(size_t readOffset)
+	{
+		this->readOffset = readOffset;
+	}
+
 #if 0
 	template<typename T>
 	bool CBitStream::Write(const T &value)

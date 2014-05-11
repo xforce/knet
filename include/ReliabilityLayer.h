@@ -50,6 +50,16 @@ namespace keksnl
 		MAX_EVENTS,
 	};
 
+
+	enum class PacketPriority : char
+	{
+		/* Will skip send buffer, so you have the control when this packet is sent*/
+		IMMEDIATE = 0,
+		HIGH,
+		MEDIUM,
+		LOW		
+	};
+
 	enum class PacketReliability : char
 	{
 		UNRELIABLE = 0,
@@ -81,6 +91,7 @@ namespace keksnl
 	{
 		char * data = nullptr;
 		PacketReliability reliability;
+		PacketPriority priority;
 		size_t bitLength;
 
 		BufferedSendPacket(char * data, size_t length)
@@ -139,8 +150,7 @@ namespace keksnl
 		{
 			bitStream.Read(isACK);
 			bitStream.Read(isNACK);
-			char ch{0};
-			bitStream.ReadBits(&ch, 6);
+			bitStream.SetReadOffset(bitStream.ReadOffset() + 6);
 
 			if (!isACK && !isNACK)
 				bitStream.Read(sequenceNumber);
@@ -210,6 +220,27 @@ namespace keksnl
 
 	};
 
+	struct DatagramPacket
+	{
+		DatagramHeader header;
+
+		/* Just hacky atm, i will make it better later */
+		CBitStream bitStream;
+		
+		void Serialize(CBitStream & bitStream)
+		{
+			header.Serialize(bitStream);
+
+
+		}
+
+		void Deserialze(CBitStream & bitStream)
+		{
+			header.Deserialize(bitStream);
+
+
+		}
+	};
 	
 	
 	class CReliabilityLayer
@@ -248,6 +279,8 @@ namespace keksnl
 
 		std::vector<BufferedSendPacket> sendBuffer;
 
+		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, DatagramPacket*>> resendBuffer;
+
 	private:
 		/* Methods */
 		void SendACKs();
@@ -259,7 +292,7 @@ namespace keksnl
 		CReliabilityLayer(ISocket * pSocket = nullptr);
 		virtual ~CReliabilityLayer();
 
-		void Send(char *data, size_t numberOfBitsToSend, PacketReliability reliability);
+		void Send(char *data, size_t numberOfBitsToSend, PacketPriority priority = PacketPriority::MEDIUM, PacketReliability reliability = PacketReliability::RELIABLE);
 
 		void Process();
 

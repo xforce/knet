@@ -95,6 +95,9 @@ public:
 		//keksnl::ReliablePacket relPacket;
 		//relPacket.Deserialize(bitStream);
 
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
 #ifndef WIN32
 		printf("Received on %p %s\n", this, relPacket.pData);
 #endif
@@ -103,10 +106,10 @@ public:
 			start = std::chrono::high_resolution_clock::now();
 		
 		countPerSec++;
-
+		count++;
 		char keks[100] = {0};
-		sprintf_s(keks, "Keks count %d", count++);
-		msg1 = keks;
+		//sprintf_s(keks, "Keks count %d", count++);
+		msg1 = "Keks count %d";
 		//std::chrono::milliseconds dura(2000);
 		//std::this_thread::sleep_for(dura);
 		packet->remoteAddress.address.addr4.sin_family = AF_INET;
@@ -148,7 +151,7 @@ public:
 
 	void Send(System &peer, const char * data, size_t len)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketReliability::RELIABLE);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketPriority::IMMEDIATE, keksnl::PacketReliability::RELIABLE);
 
 		//GetRelLayer()->GetSocket()->Send(peer.GetRelLayer()->GetSocket()->GetSocketAddress(), data, len);
 	}
@@ -398,8 +401,18 @@ int main()
 		peer1->Process();
 		peer2->Process();
 		peer3->Process();
+		
+		if (GetAsyncKeyState(VK_CONTROL))
+		{
+			_CrtDumpMemoryLeaks();
+			getchar();
+
+			__debugbreak();
+		}
 	}
 
+
+	_CrtDumpMemoryLeaks();
 
 	//keksnl::CBitStream bit;
 	//const char  *keks = "Hallo wie gehts!";
