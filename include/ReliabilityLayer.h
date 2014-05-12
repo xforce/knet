@@ -140,6 +140,7 @@ namespace keksnl
 
 	public:
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
+		PacketPriority priority;
 
 		ReliablePacket()
 		{

@@ -91,18 +91,18 @@ namespace keksnl
 	{
 		if (priority == PacketPriority::IMMEDIATE)
 		{
-			// Just send the packet
 			CBitStream bitStream{BITS_TO_BYTES(numberOfBitsToSend) + 20};
 
-
+			// Just send the packet
 			DatagramPacket* pDatagramPacket = new DatagramPacket;
 
 			pDatagramPacket->header.isACK = false;
 			pDatagramPacket->header.isNACK = false;
 			pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-
+			pDatagramPacket->GetSizeToSend();
 			ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
 			sendPacket.reliability = reliability;
+			sendPacket.priority = priority;
 
 			pDatagramPacket->packets.push_back(std::move(sendPacket));
 
@@ -115,19 +115,16 @@ namespace keksnl
 
 			return;
 		}
+		else
+		{
+			ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
+			sendPacket.reliability = reliability;
+			sendPacket.priority = priority;
 
-		// TODO: queue packets and send them at next process
-#if 1
-		ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
-		sendPacket.reliability = reliability;
+			sendBuffer.push_back(std::move(sendPacket));
 
-		sendBuffer.push_back(std::move(sendPacket));
-
-		return;
-#endif
-
-		// Now move the data to resendList
-		// TODO
+			return;
+		}
 	}
 
 	void CReliabilityLayer::Process()
@@ -149,19 +146,8 @@ namespace keksnl
 			pPacket = nullptr;
 		}
 
-#if 1
 		CBitStream bitStream{MAX_MTU_SIZE};
 
-		/*
-		DatagramHeader dh;
-		dh.isACK = false;
-		dh.isNACK = false;
-		dh.sequenceNumber = flowControlHelper.GetSequenceNumber();
-
-		dh.Serialize(bitStream);
-		*/
-
-#if 1
 		bitStream.Reset();
 		/* I think it better to do it beforce sending the new packets because of stuff */
 		for (auto & resendPacket : resendBuffer)
@@ -181,7 +167,6 @@ namespace keksnl
 				// Dont remove them because we dont have received an ack and the sequence number is same
 			}
 		}
-#endif
 
 
 		sendBuffer.shrink_to_fit();
@@ -242,8 +227,6 @@ namespace keksnl
 
 			sendBuffer.clear();
 		}
-#endif
-
 	}
 
 	bool CReliabilityLayer::ProcessPacket(InternalRecvPacket *pPacket)
@@ -313,6 +296,7 @@ namespace keksnl
 				else if (dPacket.header.isNACK)
 				{
 					// Handle NACK Packet
+					// Immediatly resend the packets
 				}
 				else
 				{
@@ -343,35 +327,7 @@ namespace keksnl
 
 							}
 						}
-					}
-
-#if 0
-					ReliablePacket packet;
-					while (bitStream.ReadOffset() < BYTES_TO_BITS(bitStream.Size()))
-					{
-						packet.Deserialize(bitStream);
-
-						// Handle DATA Packet
-						if (packet.reliability >= PacketReliability::RELIABLE)
-						{
-							// ACK/NACK stuff for packet
-
-							// TODO: basic check if packet is valid
-
-
-							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
-								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-
-							if (eventHandler)
-							{
-								eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
-
-							}
-						}
-					}
-#endif
-
-					
+					}					
 				}
 
 				return true;
