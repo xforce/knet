@@ -126,7 +126,6 @@ namespace keksnl
 			return Write((unsigned char*)&value, sizeof(T));
 		}
 
-		template<>
 		inline bool Write(const bool& value)
 		{
 			(value ? Write1() : Write0());
@@ -144,7 +143,6 @@ namespace keksnl
 			return Read((char*)&value, sizeof(T));
 		}
 
-		template<>
 		inline bool Read(bool &value)
 		{
 			value = ReadBit();

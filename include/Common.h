@@ -55,9 +55,11 @@
 #define POSIX 1
 #endif
 
+#if WIN32
 #define CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
+#endif
 
 #if WIN32
 #include <yvals.h> // This is needed for making stuff compatible

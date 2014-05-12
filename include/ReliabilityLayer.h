@@ -189,8 +189,11 @@ namespace keksnl
 
 			selfAllocated = true;
 
+
+#if WIN32
 			if (dataLength > bitStream.Size())
 				__debugbreak();
+#endif
 
 			bitStream.Read(pData, dataLength);
 		}

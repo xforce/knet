@@ -98,10 +98,6 @@ public:
 
 		//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-#ifndef WIN32
-		printf("Received on %p %s\n", this, relPacket.pData);
-#endif
-
 		if (count == 100)
 			start = std::chrono::high_resolution_clock::now();
 		
@@ -412,9 +408,6 @@ int main()
 			__debugbreak();
 		}*/
 	}
-
-
-	_CrtDumpMemoryLeaks();
 
 	//keksnl::CBitStream bit;
 	//const char  *keks = "Hallo wie gehts!";
