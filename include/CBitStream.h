@@ -35,6 +35,8 @@
 #define BITS_TO_BYTES(x) (((x)+7)>>3)
 #define BYTES_TO_BITS(x) ((x)<<3)
 
+#define BITSTREAM_STACK_SIZE 256
+
 namespace keksnl
 {
 	class CBitStream
@@ -48,6 +50,8 @@ namespace keksnl
 		size_t readOffset = 0;
 		size_t bitsAllocated = 0;
 		size_t bitsUsed = 0;
+
+		baseType stackData[BITSTREAM_STACK_SIZE];
 
 		
 	public:

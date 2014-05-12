@@ -101,27 +101,24 @@ namespace keksnl
 			pDatagramPacket->header.isNACK = false;
 			pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
 
-			
+			ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
+			sendPacket.reliability = reliability;
 
-			pDatagramPacket->header.Serialize(bitStream);
+			pDatagramPacket->packets.push_back(std::move(sendPacket));
 
-			bitStream.Write(reliability);
-			bitStream.Write<unsigned short>(BITS_TO_BYTES(numberOfBitsToSend));
-			bitStream.Write(data, BITS_TO_BYTES(numberOfBitsToSend));
+			pDatagramPacket->Serialize(bitStream);
 
 			resendBuffer.push_back({std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()), pDatagramPacket});
 
 			if (m_pSocket)
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
-			pDatagramPacket->bitStream = std::move(bitStream);
-
 			return;
 		}
 
 		// TODO: queue packets and send them at next process
 #if 1
-		BufferedSendPacket sendPacket(data, BITS_TO_BYTES(numberOfBitsToSend));
+		ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
 		sendPacket.reliability = reliability;
 
 		sendBuffer.push_back(std::move(sendPacket));
@@ -165,15 +162,17 @@ namespace keksnl
 		*/
 
 #if 1
+		bitStream.Reset();
 		/* I think it better to do it beforce sending the new packets because of stuff */
 		for (auto & resendPacket : resendBuffer)
 		{
 			if ((curTime - resendPacket.first).count() > 10000)
 			{
+				bitStream.Reset();
 				// Resend the packet
-
+				resendPacket.second->Serialize(bitStream);
 				if (m_pSocket)
-					m_pSocket->Send(m_RemoteSocketAddress, resendPacket.second->bitStream.Data(), resendPacket.second->bitStream.Size());
+					m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 				resendPacket.first = curTime;
 
@@ -186,7 +185,7 @@ namespace keksnl
 
 
 		sendBuffer.shrink_to_fit();
-		
+		bitStream.Reset();
 		if (sendBuffer.size())
 		{
 			DatagramPacket* pDatagramPacket = new DatagramPacket;
@@ -203,16 +202,15 @@ namespace keksnl
 
 				/* TODO: Message number */
 				/* TODO: create a message packet and add it to the DatagramPacket */
-				bitStream.Write(packet.reliability);
-				bitStream.Write<unsigned short>(BITS_TO_BYTES(packet.bitLength));
-				bitStream.Write(packet.data, BITS_TO_BYTES(packet.bitLength));
 
-				if (bitStream.Size() >= MAX_MTU_SIZE)
+				pDatagramPacket->packets.push_back(std::move(packet));
+
+				if (pDatagramPacket->GetSizeToSend() >= MAX_MTU_SIZE)
 				{
-					if (m_pSocket)
-						m_pSocket->Send(m_RemoteSocketAddress, pDatagramPacket->bitStream.Data(), pDatagramPacket->bitStream.Size());
+					pDatagramPacket->Serialize(bitStream);
 
-					pDatagramPacket->bitStream = std::move(bitStream);
+					if (m_pSocket)
+						m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 					// Add the packet to the resend buffer
 					resendBuffer.push_back({curTime, pDatagramPacket});
@@ -226,8 +224,6 @@ namespace keksnl
 					pDatagramPacket->header.isACK = false;
 					pDatagramPacket->header.isNACK = false;
 					pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-
-					pDatagramPacket->Serialize(bitStream);
 				}
 			}
 
@@ -238,7 +234,6 @@ namespace keksnl
 			{
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
-				pDatagramPacket->bitStream = std::move(bitStream);
 				resendBuffer.push_back({curTime, pDatagramPacket});
 			}
 
@@ -262,10 +257,10 @@ namespace keksnl
 				//printf("Process %d bytes\n", pPacket->bytesRead);
 
 				// Handle Packet in Reliability Layer
-				DatagramHeader dh;
-				dh.Deserialize(bitStream);
+				DatagramPacket dPacket;
+				dPacket.Deserialze(bitStream);
 	
-				if (dh.isACK)
+				if (dPacket.header.isACK)
 				{
 					// Handle ACK Packet
 					std::vector<std::pair<int, int>> ranges;
@@ -315,23 +310,42 @@ namespace keksnl
 
 					resendBuffer.shrink_to_fit();
 				}
-				else if (dh.isNACK)
+				else if (dPacket.header.isNACK)
 				{
 					// Handle NACK Packet
 				}
 				else
 				{
+					// Now process the packet
+
+#ifdef DEBUG
 					for (auto i : acknowledgements)
 					{
-
 						if (dh.sequenceNumber == i)
 							printf("Already in ACK list %d\n", i);
 					}
+#endif
 
 					//printf("Got packet %d\n", dh.sequenceNumber);
 
-					acknowledgements.push_back(dh.sequenceNumber);
+					acknowledgements.push_back(dPacket.header.sequenceNumber);
 
+					for (auto &packet : dPacket.packets)
+					{
+						if (packet.reliability >= PacketReliability::RELIABLE)
+						{
+							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
+							if (eventHandler)
+							{
+								eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
+
+							}
+						}
+					}
+
+#if 0
 					ReliablePacket packet;
 					while (bitStream.ReadOffset() < BYTES_TO_BITS(bitStream.Size()))
 					{
@@ -355,8 +369,9 @@ namespace keksnl
 							}
 						}
 					}
+#endif
 
-					// Now process the packet
+					
 				}
 
 				return true;

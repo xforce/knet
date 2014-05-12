@@ -358,6 +358,8 @@ int main()
 			sender.GetSocket()->Send(peer.GetSocket()->GetSocketAddress(), bitStream.Data(), bitStream.Size());
 		else
 			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+
+		printf("Send\n");
 	};
 
 	sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
@@ -402,13 +404,13 @@ int main()
 		peer2->Process();
 		peer3->Process();
 		
-		if (GetAsyncKeyState(VK_CONTROL))
+		/*if (GetAsyncKeyState(VK_CONTROL))
 		{
 			_CrtDumpMemoryLeaks();
 			getchar();
 
 			__debugbreak();
-		}
+		}*/
 	}
 
 

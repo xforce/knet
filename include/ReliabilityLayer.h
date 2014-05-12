@@ -50,7 +50,6 @@ namespace keksnl
 		MAX_EVENTS,
 	};
 
-
 	enum class PacketPriority : char
 	{
 		/* Will skip send buffer, so you have the control when this packet is sent*/
@@ -70,7 +69,6 @@ namespace keksnl
 		MAX
 	};
 
-
 	class CFlowControlHelper
 	{
 	private:
@@ -87,35 +85,6 @@ namespace keksnl
 		}
 	};
 
-	struct BufferedSendPacket
-	{
-		char * data = nullptr;
-		PacketReliability reliability;
-		PacketPriority priority;
-		size_t bitLength;
-
-		BufferedSendPacket(char * data, size_t length)
-		{
-			this->data = (char*)(malloc(length));
-			memcpy(this->data, data, length);
-			bitLength = BYTES_TO_BITS(length);
-		}
-
-		BufferedSendPacket(BufferedSendPacket &&other)
-		{
-			this->data = other.data;
-			this->reliability = other.reliability;
-			this->bitLength = other.bitLength;
-
-			other.data = nullptr;
-		}
-
-		~BufferedSendPacket()
-		{
-			if (data)
-				free(data);
-		}
-	};
 
 	typedef int SequenceNumberType;
 
@@ -156,38 +125,44 @@ namespace keksnl
 				bitStream.Read(sequenceNumber);
 		}
 
-	};
-
-	class MessageHeader : public DatagramHeader
-	{
-
-	public:
-		virtual void Serialize(CBitStream & bitStream) override
+		size_t GetSizeToSend()
 		{
-			DatagramHeader::Serialize(bitStream);
-
-			// Do our stuff
-		}
-
-		virtual void Deserialize(CBitStream & bitStream) override
-		{
-			DatagramHeader::Deserialize(bitStream);
-
-			// Do our stuff
+			return 1 + ((!isACK && !isNACK) ? sizeof(sequenceNumber) : 0);
 		}
 	};
-
 
 	struct ReliablePacket
 	{
 	private:
 		bool selfAllocated = false;
+		char * pData = nullptr;
+		unsigned short dataLength = 0;
 
 	public:
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
 
-		unsigned short dataLength = 0;
-		char * pData = nullptr;
+		ReliablePacket()
+		{
+
+		}
+
+		ReliablePacket(char * data, size_t length)
+		{
+			pData = (char*)(malloc(length));
+			memcpy(pData, data, length);
+			selfAllocated = true;
+			dataLength = length;
+		}
+
+		ReliablePacket(ReliablePacket &&other)
+		{
+			this->pData = other.pData;
+			this->selfAllocated = other.selfAllocated;
+			this->reliability = other.reliability;
+			this->dataLength = other.dataLength;
+
+			other.pData = nullptr;
+		}
 
 		~ReliablePacket()
 		{
@@ -214,10 +189,16 @@ namespace keksnl
 
 			selfAllocated = true;
 
+			if (dataLength > bitStream.Size())
+				__debugbreak();
+
 			bitStream.Read(pData, dataLength);
 		}
 
-
+		size_t GetSizeToSend()
+		{
+			return sizeof(dataLength)+dataLength;
+		}
 	};
 
 	struct DatagramPacket
@@ -225,12 +206,20 @@ namespace keksnl
 		DatagramHeader header;
 
 		/* Just hacky atm, i will make it better later */
-		CBitStream bitStream;
+		std::vector<ReliablePacket> packets;
 		
+		DatagramPacket()
+		{
+			packets.reserve(3);
+		}
+
 		void Serialize(CBitStream & bitStream)
 		{
 			header.Serialize(bitStream);
 
+			if (!header.isACK && !header.isNACK)
+				for (auto &packet : packets)
+					packet.Serialize(bitStream);
 
 		}
 
@@ -238,7 +227,26 @@ namespace keksnl
 		{
 			header.Deserialize(bitStream);
 
+			if (!header.isACK && !header.isNACK)
+			{
+				while (bitStream.ReadOffset() < BYTES_TO_BITS(bitStream.Size()))
+				{
+					ReliablePacket packet;
+					packet.Deserialize(bitStream);
+					packets.push_back(std::move(packet));
+				}
+			}
+		}
 
+		size_t GetSizeToSend()
+		{
+			size_t size = 0;
+			for (auto &packet : packets)
+			{
+				size += packet.GetSizeToSend();
+			}
+
+			return size+header.GetSizeToSend();
 		}
 	};
 	
@@ -277,7 +285,7 @@ namespace keksnl
 		std::vector<SequenceNumberType> acknowledgements;
 
 
-		std::vector<BufferedSendPacket> sendBuffer;
+		std::vector<ReliablePacket> sendBuffer;
 
 		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, DatagramPacket*>> resendBuffer;
 

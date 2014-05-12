@@ -40,17 +40,30 @@ namespace keksnl
 	
 	CBitStream::CBitStream(size_t initialBytes)
 	{
-		// TODO: track avg to make allocation to better fit the need
-		pData = (decltype(pData))malloc(initialBytes);
-		bitsAllocated = BYTES_TO_BITS(initialBytes);
+		if (initialBytes < BITSTREAM_STACK_SIZE)
+		{
+			pData = stackData;
+			bitsAllocated = BYTES_TO_BITS(BITSTREAM_STACK_SIZE);
+		}
+		else
+		{
+			// TODO: track avg to make allocation to better fit the need
+			pData = (decltype(pData))malloc(initialBytes);
+			bitsAllocated = BYTES_TO_BITS(initialBytes);
+		}
 	}
 
 	CBitStream::CBitStream(CBitStream &&other)
 	{
-		if (pData)
-			free(pData);
+		if (pData != stackData)
+			if (pData)
+				free(pData);
 
-		pData = other.pData;
+		if (other.pData == other.stackData)
+			memcpy(this->stackData, other.stackData, BITSTREAM_STACK_SIZE);
+		else
+			pData = other.pData;
+
 		bitsAllocated = other.bitsAllocated;
 		bitsUsed = other.bitsUsed;
 		readOffset = other.readOffset;
@@ -70,15 +83,24 @@ namespace keksnl
 
 		if (_copyData || 1==1)
 		{
-			if (lengthInBytes > 0)
+			if (lengthInBytes < BITSTREAM_STACK_SIZE)
+			{
+				pData = stackData;
+				bitsAllocated = BYTES_TO_BITS(BITSTREAM_STACK_SIZE);
+			}
+			else
+			//if (lengthInBytes > 0)
 			{
 				pData = (unsigned char*)malloc((size_t)lengthInBytes);
 				
 				assert(data);
-				memcpy(pData, _data, (size_t)lengthInBytes);
+
+				
 			}
-			else
-				pData = 0;
+			/*else
+				pData = 0;*/
+
+			memcpy(pData, _data, (size_t)lengthInBytes);
 		}
 		else
 			pData = (unsigned char*)_data;
@@ -86,8 +108,9 @@ namespace keksnl
 
 	CBitStream::~CBitStream()
 	{ 
-		if (pData)
-			free(pData);
+		if (pData != stackData)
+			if (pData)
+				free(pData);
 
 		bitsAllocated = 0;
 		bitsUsed = 0;
@@ -98,10 +121,18 @@ namespace keksnl
 	{
 		size_t newBitsAllocated = bitsAllocated + numberOfBits;
 
+		if (BITS_TO_BYTES(newBitsAllocated) < BITSTREAM_STACK_SIZE)
+		{
+			return true;
+		}
+
 		auto data = (decltype(pData))realloc(pData, BITS_TO_BYTES(newBitsAllocated));
 
 		if (!data)
 			return false;
+
+		if (pData == stackData)
+			memcpy(data, stackData, BITS_TO_BYTES(bitsAllocated));
 
 		pData = data;
 
@@ -338,10 +369,15 @@ namespace keksnl
 
 	bool CBitStream::operator=(CBitStream &&right)
 	{
-		if (pData)
-			free(pData);
+		if (pData != stackData)
+			if (pData)
+				free(pData);
 
-		pData = right.pData;
+		if (right.pData == right.stackData)
+			memcpy(this->stackData, right.stackData, BITSTREAM_STACK_SIZE);
+		else
+			pData = right.pData;
+
 		bitsAllocated = right.bitsAllocated;
 		bitsUsed = right.bitsUsed;
 		readOffset = right.readOffset;
