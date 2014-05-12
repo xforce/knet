@@ -92,21 +92,29 @@ namespace keksnl
 		if (priority == PacketPriority::IMMEDIATE)
 		{
 			// Just send the packet
-			CBitStream bitStream{MAX_MTU_SIZE};
+			CBitStream bitStream{BITS_TO_BYTES(numberOfBitsToSend) + 20};
 
-			DatagramHeader dh;
-			dh.isACK = false;
-			dh.isNACK = false;
-			dh.sequenceNumber = flowControlHelper.GetSequenceNumber();
 
-			dh.Serialize(bitStream);
+			DatagramPacket* pDatagramPacket = new DatagramPacket;
+
+			pDatagramPacket->header.isACK = false;
+			pDatagramPacket->header.isNACK = false;
+			pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
+			
+
+			pDatagramPacket->header.Serialize(bitStream);
 
 			bitStream.Write(reliability);
 			bitStream.Write<unsigned short>(BITS_TO_BYTES(numberOfBitsToSend));
 			bitStream.Write(data, BITS_TO_BYTES(numberOfBitsToSend));
 
+			resendBuffer.push_back({std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()), pDatagramPacket});
+
 			if (m_pSocket)
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+			pDatagramPacket->bitStream = std::move(bitStream);
 
 			return;
 		}
@@ -165,7 +173,9 @@ namespace keksnl
 				// Resend the packet
 
 				if (m_pSocket)
-					m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+					m_pSocket->Send(m_RemoteSocketAddress, resendPacket.second->bitStream.Data(), resendPacket.second->bitStream.Size());
+
+				resendPacket.first = curTime;
 
 				printf("Resent packet %d\n", resendPacket.second->header.sequenceNumber);
 
@@ -176,61 +186,67 @@ namespace keksnl
 
 
 		sendBuffer.shrink_to_fit();
-
-		DatagramPacket* pDatagramPacket = new DatagramPacket;
-
-		pDatagramPacket->header.isACK = false;
-		pDatagramPacket->header.isNACK = false;
-		pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-
-		// Send queued packets
-		for (auto &packet : sendBuffer)
+		
+		if (sendBuffer.size())
 		{
-			/* TODO move to datagram packet */
+			DatagramPacket* pDatagramPacket = new DatagramPacket;
 
+			pDatagramPacket->header.isACK = false;
+			pDatagramPacket->header.isNACK = false;
+			pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
 
-			/* TODO: Message number */
-			/* TODO: create a message packet and add it to the DatagramPacket */
-			bitStream.Write(packet.reliability);
-			bitStream.Write<unsigned short>(BITS_TO_BYTES(packet.bitLength));
-			bitStream.Write(packet.data, BITS_TO_BYTES(packet.bitLength));
-
-			if (bitStream.Size() >= MAX_MTU_SIZE)
+			// Send queued packets
+			for (auto &packet : sendBuffer)
 			{
-				if (m_pSocket)
-					m_pSocket->Send(m_RemoteSocketAddress, pDatagramPacket->bitStream.Data(), pDatagramPacket->bitStream.Size());
+				/* TODO move to datagram packet */
+
+
+				/* TODO: Message number */
+				/* TODO: create a message packet and add it to the DatagramPacket */
+				bitStream.Write(packet.reliability);
+				bitStream.Write<unsigned short>(BITS_TO_BYTES(packet.bitLength));
+				bitStream.Write(packet.data, BITS_TO_BYTES(packet.bitLength));
+
+				if (bitStream.Size() >= MAX_MTU_SIZE)
+				{
+					if (m_pSocket)
+						m_pSocket->Send(m_RemoteSocketAddress, pDatagramPacket->bitStream.Data(), pDatagramPacket->bitStream.Size());
+
+					pDatagramPacket->bitStream = std::move(bitStream);
+
+					// Add the packet to the resend buffer
+					resendBuffer.push_back({curTime, pDatagramPacket});
+
+
+					// Create a new datagram packet
+					pDatagramPacket = new DatagramPacket();
+
+					bitStream.Reset();
+
+					pDatagramPacket->header.isACK = false;
+					pDatagramPacket->header.isNACK = false;
+					pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
+					pDatagramPacket->Serialize(bitStream);
+				}
+			}
+
+			if (sendBuffer.size())
+				;// printf("Sending %d bytes\n", bitStream.Size());
+
+			if (sendBuffer.size() && bitStream.Size() && m_pSocket)
+			{
+				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 				pDatagramPacket->bitStream = std::move(bitStream);
-
-				// Add the packet to the resend buffer
 				resendBuffer.push_back({curTime, pDatagramPacket});
-
-
-				// Create a new datagram packet
-				pDatagramPacket = new DatagramPacket();
-
-				bitStream.Reset();
-
-				pDatagramPacket->header.isACK = false;
-				pDatagramPacket->header.isNACK = false;
-				pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-
-				pDatagramPacket->Serialize(bitStream);
 			}
+
+			if (resendBuffer.capacity() > 512)
+				resendBuffer.shrink_to_fit();
+
+			sendBuffer.clear();
 		}
-
-		if (sendBuffer.size())
-			;// printf("Sending %d bytes\n", bitStream.Size());
-
-		if (sendBuffer.size() && bitStream.Size() && m_pSocket)
-		{
-			m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
-
-			pDatagramPacket->bitStream = std::move(bitStream);
-			resendBuffer.push_back({curTime, pDatagramPacket});
-		}
-
-		sendBuffer.clear();
 #endif
 
 	}
@@ -251,6 +267,7 @@ namespace keksnl
 	
 				if (dh.isACK)
 				{
+					// Handle ACK Packet
 					std::vector<std::pair<int, int>> ranges;
 
 					int count = 0;
@@ -264,10 +281,14 @@ namespace keksnl
 						bitStream.Read(min);
 						bitStream.Read(max);
 
+						//printf("Got ACK for %d %d\n", min, max);
+
 						ranges.push_back({min, max});
 					}
 
-					for (int i = 0; i < resendBuffer.size(); ++i)
+					auto size = resendBuffer.size();
+
+					for (int i = 0; i < size; ++i)
 					{
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
 						auto isInAckRange = [](decltype(ranges)& vecRange, int sequenceNumber) -> bool
@@ -282,16 +303,17 @@ namespace keksnl
 
 						if (isInAckRange(ranges, sequenceNumber))
 						{
-							printf("Got ACK for %d\n", sequenceNumber);
+							
 							delete resendBuffer[i].second;
+							resendBuffer[i].second = nullptr;
 							resendBuffer.erase(resendBuffer.begin() + i);
+							//printf("Remove %d from resend list\n", i);
+							--i;
+							--size;
 						}
-						else
-							++i;
 					}
 
-					// Handle ACK Packet
-					printf("Got ACKs\n");
+					resendBuffer.shrink_to_fit();
 				}
 				else if (dh.isNACK)
 				{
@@ -299,6 +321,15 @@ namespace keksnl
 				}
 				else
 				{
+					for (auto i : acknowledgements)
+					{
+
+						if (dh.sequenceNumber == i)
+							printf("Already in ACK list %d\n", i);
+					}
+
+					//printf("Got packet %d\n", dh.sequenceNumber);
+
 					acknowledgements.push_back(dh.sequenceNumber);
 
 					ReliablePacket packet;

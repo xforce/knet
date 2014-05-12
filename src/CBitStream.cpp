@@ -47,6 +47,9 @@ namespace keksnl
 
 	CBitStream::CBitStream(CBitStream &&other)
 	{
+		if (pData)
+			free(pData);
+
 		pData = other.pData;
 		bitsAllocated = other.bitsAllocated;
 		bitsUsed = other.bitsUsed;
@@ -324,7 +327,29 @@ namespace keksnl
 
 	bool CBitStream::operator=(const CBitStream &right)
 	{
-		this->pData = right.pData;
+		PrepareWrite(right.bitsUsed);
+
+		memcpy(this->pData, right.pData, BITS_TO_BYTES(right.bitsUsed));
+		this->bitsUsed = right.bitsUsed;
+		this->readOffset = right.readOffset;
+
+		return true;
+	}
+
+	bool CBitStream::operator=(CBitStream &&right)
+	{
+		if (pData)
+			free(pData);
+
+		pData = right.pData;
+		bitsAllocated = right.bitsAllocated;
+		bitsUsed = right.bitsUsed;
+		readOffset = right.readOffset;
+
+		right.bitsUsed = 0;
+		right.bitsAllocated = 0;
+		right.pData = nullptr;
+		right.readOffset = 0;
 
 		return true;
 	}

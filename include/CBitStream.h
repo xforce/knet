@@ -148,6 +148,7 @@ namespace keksnl
 		}
 
 		bool operator=(const CBitStream &right);
+		bool operator=(CBitStream &&right);
 
 	public: /* Stream operators */
 

@@ -96,7 +96,7 @@ public:
 		//relPacket.Deserialize(bitStream);
 
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 #ifndef WIN32
 		printf("Received on %p %s\n", this, relPacket.pData);
@@ -175,7 +175,7 @@ double packetsPerSec = 0;
 int main()
 {
 #pragma region Speed Test
-
+#if 0
 	std::random_device rd;
 	std::mt19937 rnd;
 	std::uniform_int_distribution<USHORT> rndShort;
@@ -325,7 +325,7 @@ int main()
 			min = -1;
 		}
 	}
-
+#endif
 #pragma endregion
 
 
