@@ -150,6 +150,7 @@ typedef int SOCKET;
 #include <thread>
 #include <functional>
 #include <tuple>
+#include <algorithm>
 #pragma endregion
 
 #include <cassert>
