@@ -104,7 +104,11 @@ namespace keksnl
 
 
 		// TODO: set initial socket options
-
+		
+#if 0 // Actually this makes it slower, because of CPU Bound crap fucking threads are taking to much cpu - I will work on that later
+		u_long iMode = 1;
+		ioctlsocket(m_Socket, FIONBIO, &iMode);
+#endif
 
 		// Bind the socket to the address in bindArgs
 		int ret = bind(m_Socket, (struct sockaddr *)&m_BoundAddress.address.addr4, sizeof(m_BoundAddress.address.addr4));
@@ -149,6 +153,8 @@ namespace keksnl
 
 	void CBerkleySocket::RecvFromLoop()
 	{
+		InternalRecvPacket * packet = new InternalRecvPacket();
+
 		while (endThread == false)
 		{
 			const auto recvFromBlocking = [](SOCKET _socket, InternalRecvPacket &packet) -> bool
@@ -179,22 +185,25 @@ namespace keksnl
 				return true;
 			};
 
-			InternalRecvPacket * packet = new InternalRecvPacket();
+			
 			
 			// TODO: handle return
-			if (!recvFromBlocking(m_Socket, *packet))
+			if (recvFromBlocking(m_Socket, *packet))
 			{
-				
-			}
+				packet->pSocket = this;
 
-			packet->pSocket = this;
+				if (eventHandler)
+				{
+					eventHandler.Call(SocketEvents::RECEIVE, packet);
+				}
+				else
+					delete packet;
 
-			if (eventHandler)
-			{
-				eventHandler.Call(SocketEvents::RECEIVE, packet);
+				packet = new InternalRecvPacket();
 			}
 			else
-				delete packet;
+				Sleep(0);
+
 		}
 
 		bRecvThreadRunning = false;
