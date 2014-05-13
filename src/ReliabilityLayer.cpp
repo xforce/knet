@@ -173,53 +173,98 @@ namespace keksnl
 		bitStream.Reset();
 		if (sendBuffer.size())
 		{
-			DatagramPacket* pDatagramPacket = new DatagramPacket;
+			/* TODO: kinda hacky, make it better :D */
 
-			pDatagramPacket->header.isACK = false;
-			pDatagramPacket->header.isNACK = false;
-			pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+			DatagramPacket* pReliableDatagramPacket = new DatagramPacket();
+			DatagramPacket* pUnrealiableDatagramPacket = new DatagramPacket();
+
+			/* Setup Unrealiable datagram packet */
+			pUnrealiableDatagramPacket->header.isACK = false;
+			pUnrealiableDatagramPacket->header.isNACK = false;
+			pUnrealiableDatagramPacket->header.isReliable = false;
+
+			/* Setup Reliable datagram packet */
+			pReliableDatagramPacket->header.isACK = false;
+			pReliableDatagramPacket->header.isNACK = false;
+			pReliableDatagramPacket->header.isReliable = false;
+			pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
+			DatagramPacket * pCurrentPacket = pReliableDatagramPacket;
 
 			// Send queued packets
 			for (auto &packet : sendBuffer)
 			{
-				/* TODO move to datagram packet */
-
-
 				/* TODO: Message number */
 				/* TODO: create a message packet and add it to the DatagramPacket */
 
-				pDatagramPacket->packets.push_back(std::move(packet));
-
-				if (pDatagramPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+				if (packet.reliability == PacketReliability::RELIABLE
+					|| packet.reliability == PacketReliability::RELIABLE_ORDERED)
 				{
-					pDatagramPacket->Serialize(bitStream);
+					pCurrentPacket = pReliableDatagramPacket;
+				}
+				else
+				{
+					pCurrentPacket = pUnrealiableDatagramPacket;
+				}
+
+				pCurrentPacket->packets.push_back(std::move(packet));
+
+				if (pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+				{
+					pCurrentPacket->Serialize(bitStream);
 
 					if (m_pSocket)
 						m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
-					// Add the packet to the resend buffer
-					resendBuffer.push_back({curTime, pDatagramPacket});
+					
+					if (pCurrentPacket == pReliableDatagramPacket)
+					{
+						// Add the packet to the resend buffer
+						resendBuffer.push_back({curTime, pCurrentPacket});
+						
+						pReliableDatagramPacket = new DatagramPacket();
 
+						pReliableDatagramPacket->header.isACK = false;
+						pReliableDatagramPacket->header.isNACK = false;
+						pReliableDatagramPacket->header.isReliable = false;
+						pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+					}
+					else
+					{
+						delete pUnrealiableDatagramPacket;
+						pUnrealiableDatagramPacket = new DatagramPacket();
 
-					// Create a new datagram packet
-					pDatagramPacket = new DatagramPacket();
+						pUnrealiableDatagramPacket->header.isACK = false;
+						pUnrealiableDatagramPacket->header.isNACK = false;
+						pUnrealiableDatagramPacket->header.isReliable = false;
+					}
 
 					bitStream.Reset();
-
-					pDatagramPacket->header.isACK = false;
-					pDatagramPacket->header.isNACK = false;
-					pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
 				}
 			}
 
 			if (sendBuffer.size())
 				;// printf("Sending %d bytes\n", bitStream.Size());
 
-			if (sendBuffer.size() && bitStream.Size() && m_pSocket)
+			if (pUnrealiableDatagramPacket->packets.size())
 			{
+				bitStream.Reset();
+				pUnrealiableDatagramPacket->Serialize(bitStream);
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
-				resendBuffer.push_back({curTime, pDatagramPacket});
+				// Unrealiable packets are not needed anymore
+				delete pUnrealiableDatagramPacket;
+			}
+
+			if (pReliableDatagramPacket)
+			{
+				bitStream.Reset();
+
+				pReliableDatagramPacket->Serialize(bitStream);
+
+				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+				resendBuffer.push_back({curTime, pReliableDatagramPacket});
 			}
 
 			if (resendBuffer.capacity() > 512)

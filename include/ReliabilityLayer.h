@@ -93,6 +93,7 @@ namespace keksnl
 	public:
 		bool isACK;
 		bool isNACK;
+		bool isReliable = true;
 		SequenceNumberType sequenceNumber = 0;
 
 
@@ -100,10 +101,10 @@ namespace keksnl
 		{
 			bitStream.Write(isACK);
 			bitStream.Write(isNACK);
+			bitStream.Write(isReliable);
 
 			// Now fill to 1 byte to improve performance
 			// This can later be used for more information in the header
-			bitStream.Write0();
 			bitStream.Write0();
 			bitStream.Write0();
 			bitStream.Write0();
@@ -119,15 +120,16 @@ namespace keksnl
 		{
 			bitStream.Read(isACK);
 			bitStream.Read(isNACK);
+			bitStream.Read(isReliable);
 			bitStream.SetReadOffset(bitStream.ReadOffset() + 6);
 
-			if (!isACK && !isNACK)
+			if (!isACK && !isNACK && isReliable)
 				bitStream.Read(sequenceNumber);
 		}
 
 		size_t GetSizeToSend()
 		{
-			return 1 + ((!isACK && !isNACK) ? sizeof(sequenceNumber) : 0);
+			return 1 + ((!isACK && !isNACK && isReliable) ? sizeof(sequenceNumber) : 0);
 		}
 	};
 
