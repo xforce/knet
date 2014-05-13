@@ -121,7 +121,7 @@ namespace keksnl
 			bitStream.Read(isACK);
 			bitStream.Read(isNACK);
 			bitStream.Read(isReliable);
-			bitStream.SetReadOffset(bitStream.ReadOffset() + 6);
+			bitStream.SetReadOffset(bitStream.ReadOffset() + 5);
 
 			if (!isACK && !isNACK && isReliable)
 				bitStream.Read(sequenceNumber);
