@@ -178,8 +178,6 @@ namespace keksnl
 			bitStream.Write(reliability);
 			bitStream.Write(dataLength);
 			bitStream.Write(pData, dataLength);
-			if (dataLength > 200)
-				__debugbreak();
 		}
 
 		void Deserialize(CBitStream &bitStream)
