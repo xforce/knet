@@ -98,7 +98,18 @@ namespace keksnl
 
 			pDatagramPacket->header.isACK = false;
 			pDatagramPacket->header.isNACK = false;
-			pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
+			if (reliability == PacketReliability::RELIABLE
+				|| reliability == PacketReliability::RELIABLE_ORDERED)
+			{
+				pDatagramPacket->header.isReliable = true;
+				pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+			}
+			else
+			{
+				pDatagramPacket->header.isReliable = false;
+			}
+
 			pDatagramPacket->GetSizeToSend();
 			ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
 			sendPacket.reliability = reliability;
@@ -108,7 +119,8 @@ namespace keksnl
 
 			pDatagramPacket->Serialize(bitStream);
 
-			resendBuffer.push_back({std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()), pDatagramPacket});
+			if (pDatagramPacket->header.isReliable)
+				resendBuffer.push_back({std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()), pDatagramPacket});
 
 			if (m_pSocket)
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
@@ -357,7 +369,8 @@ namespace keksnl
 
 					//printf("Got packet %d\n", dh.sequenceNumber);
 
-					acknowledgements.push_back(dPacket.header.sequenceNumber);
+					if (dPacket.header.isReliable)
+						acknowledgements.push_back(dPacket.header.sequenceNumber);
 
 					for (auto &packet : dPacket.packets)
 					{
@@ -365,14 +378,16 @@ namespace keksnl
 						{
 							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
 								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-
-							if (eventHandler)
-							{
-								eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
-
-							}
 						}
-					}					
+
+					
+					}	
+
+					if (eventHandler)
+					{
+						eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
+
+					}
 				}
 
 				return true;
@@ -408,11 +423,7 @@ namespace keksnl
 
 		// Now handle the packet
 
-
-		if (eventHandler)
-		{
-			eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
-		}
+		ProcessPacket(pPacket);
 
 		return true;
 	}

@@ -148,7 +148,6 @@ public:
 	void Send(System &peer, const char * data, size_t len)
 	{
 		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketPriority::IMMEDIATE, keksnl::PacketReliability::RELIABLE);
-
 		//GetRelLayer()->GetSocket()->Send(peer.GetRelLayer()->GetSocket()->GetSocketAddress(), data, len);
 	}
 
@@ -342,11 +341,12 @@ int main()
 		keksnl::DatagramHeader dh;
 		dh.isACK = false;
 		dh.isNACK = false;
+		dh.isReliable = false;
 		dh.sequenceNumber = 0;
 
 		dh.Serialize(bitStream);
 
-		bitStream.Write(keksnl::PacketReliability::RELIABLE);
+		bitStream.Write(keksnl::PacketReliability::UNRELIABLE);
 		bitStream.Write<unsigned short>(BITS_TO_BYTES(numberOfBits));
 		bitStream.Write(data, BITS_TO_BYTES(numberOfBits));
 

@@ -62,9 +62,9 @@ namespace keksnl
 	enum class PacketReliability : char
 	{
 		UNRELIABLE = 0,
+		
 		RELIABLE,
 		RELIABLE_ORDERED,
-
 
 		MAX
 	};
@@ -112,7 +112,7 @@ namespace keksnl
 			bitStream.Write0();
 
 			/* To save bandwith for ack/nack */
-			if (!isACK && !isNACK)
+			if (!isACK && !isNACK && isReliable)
 				bitStream.Write(sequenceNumber);
 		}
 
@@ -178,6 +178,8 @@ namespace keksnl
 			bitStream.Write(reliability);
 			bitStream.Write(dataLength);
 			bitStream.Write(pData, dataLength);
+			if (dataLength > 200)
+				__debugbreak();
 		}
 
 		void Deserialize(CBitStream &bitStream)
