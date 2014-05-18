@@ -39,7 +39,7 @@
 #include <queue>
 #include <bitset>
 
-namespace keksnl 
+namespace keksnl
 {
 	enum class ReliabilityEvents : char
 	{
@@ -50,19 +50,24 @@ namespace keksnl
 		MAX_EVENTS,
 	};
 
+	enum class DisconnectReason : char
+	{
+		TIMEOUT = 0,
+	};
+
 	enum class PacketPriority : char
 	{
 		/* Will skip send buffer, so you have the control when this packet is sent*/
 		IMMEDIATE = 0,
 		HIGH,
 		MEDIUM,
-		LOW		
+		LOW
 	};
 
 	enum class PacketReliability : char
 	{
 		UNRELIABLE = 0,
-		
+
 		RELIABLE,
 		RELIABLE_ORDERED,
 
@@ -213,7 +218,7 @@ namespace keksnl
 
 		/* Just hacky atm, i will make it better later */
 		std::vector<ReliablePacket> packets;
-		
+
 		DatagramPacket()
 		{
 			packets.reserve(3);
@@ -255,12 +260,12 @@ namespace keksnl
 			return size+header.GetSizeToSend();
 		}
 	};
-	
-	
+
+
 	class CReliabilityLayer
 	{
 	public:
-		
+
 		/* Types/structs used internally in Reliability Layer */
 		struct RemoteSystem
 		{
@@ -278,13 +283,14 @@ namespace keksnl
 
 		std::chrono::milliseconds m_msTimeout = std::chrono::milliseconds(10000);
 		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> firstUnsentAck;
+		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> lastReceiveFromRemote;
 
 		std::mutex bufferMutex;
 
 
 		std::queue<InternalRecvPacket*> bufferedPacketQueue;
 
-		
+
 
 		std::vector<RemoteSystem> remoteList;
 
@@ -299,7 +305,7 @@ namespace keksnl
 		/* Methods */
 		void SendACKs();
 
-		
+
 		bool ProcessPacket(InternalRecvPacket *pPacket);
 
 	public:

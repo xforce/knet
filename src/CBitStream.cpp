@@ -93,7 +93,7 @@ namespace keksnl
 			{
 				pData = (unsigned char*)malloc((size_t)lengthInBytes);
 				
-				assert(data);
+				assert(pData);
 
 				
 			}
@@ -107,7 +107,7 @@ namespace keksnl
 	}
 
 	CBitStream::~CBitStream()
-	{ 
+	{
 		if (pData != stackData)
 			if (pData)
 				free(pData);

@@ -29,7 +29,6 @@
 */
 
 #include <ReliabilityLayer.h>
-#include <unordered_set>
 
 namespace keksnl
 {
@@ -38,6 +37,7 @@ namespace keksnl
 		: m_pSocket(pSocket)
 	{
 		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
+		lastReceiveFromRemote = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 	}
 
 	CReliabilityLayer::~CReliabilityLayer()
@@ -56,6 +56,8 @@ namespace keksnl
 		}
 
 		std::lock_guard<std::mutex> m{bufferMutex};
+
+		lastReceiveFromRemote = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
 		// Add packet to buffer
 		bufferedPacketQueue.push(packet);
@@ -146,6 +148,23 @@ namespace keksnl
 		if (firstUnsentAck.time_since_epoch().count() > 0 && ((curTime - firstUnsentAck).count() >= 5000 || acknowledgements.size() > 100))
 			SendACKs();
 
+
+		if(m_pSocket)
+		{
+			// Check for timeout
+			if(lastReceiveFromRemote.time_since_epoch().count() && ((curTime - lastReceiveFromRemote).count() >= 5000))
+			{
+
+				printf("Disconnect: Timeout\n");
+				// NOW send disconnect event so it will be removed in our peer
+				// The Peer which handles this event should stop listening for this socket by calling StopReceiving
+				// Then the peer should remove the Remote stuff on next process not in this handler
+				eventHandler.Call(ReliabilityEvents::CONNECTION_LOST_TIMEOUT, m_RemoteSocketAddress, DisconnectReason::TIMEOUT);
+
+			}
+		}
+
+
 		// TODO: process all network and buffered stuff
 		InternalRecvPacket * pPacket = nullptr;
 		while ((pPacket = PopBufferedPacket()) && pPacket != nullptr)
@@ -160,6 +179,7 @@ namespace keksnl
 
 		CBitStream bitStream{MAX_MTU_SIZE};
 
+#pragma region Resend Stuff
 		bitStream.Reset();
 		/* I think it better to do it beforce sending the new packets because of stuff */
 		for (auto & resendPacket : resendBuffer)
@@ -167,6 +187,7 @@ namespace keksnl
 			if ((curTime - resendPacket.first).count() > 10000)
 			{
 				bitStream.Reset();
+
 				// Resend the packet
 				resendPacket.second->Serialize(bitStream);
 				if (m_pSocket)
@@ -179,8 +200,11 @@ namespace keksnl
 				// Dont remove them because we dont have received an ack and the sequence number is same
 			}
 		}
+#pragma endregion
 
+#pragma region Send Stuff
 
+		// This fixes high memory consumption
 		sendBuffer.shrink_to_fit();
 		bitStream.Reset();
 		if (sendBuffer.size())
@@ -228,12 +252,12 @@ namespace keksnl
 					if (m_pSocket)
 						m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
-					
+
 					if (pCurrentPacket == pReliableDatagramPacket)
 					{
 						// Add the packet to the resend buffer
 						resendBuffer.push_back({curTime, pCurrentPacket});
-						
+
 						pReliableDatagramPacket = new DatagramPacket();
 
 						pReliableDatagramPacket->header.isACK = false;
@@ -278,7 +302,9 @@ namespace keksnl
 
 				resendBuffer.push_back({curTime, pReliableDatagramPacket});
 			}
+#pragma endregion
 
+			// This fixes high memory consumption
 			if (resendBuffer.capacity() > 512)
 				resendBuffer.shrink_to_fit();
 
@@ -299,7 +325,7 @@ namespace keksnl
 				// Handle Packet in Reliability Layer
 				DatagramPacket dPacket;
 				dPacket.Deserialze(bitStream);
-	
+
 				if (dPacket.header.isACK)
 				{
 					// Handle ACK Packet
@@ -338,7 +364,7 @@ namespace keksnl
 
 						if (isInAckRange(ranges, sequenceNumber))
 						{
-							
+
 							delete resendBuffer[i].second;
 							resendBuffer[i].second = nullptr;
 							resendBuffer.erase(resendBuffer.begin() + i);
@@ -380,8 +406,8 @@ namespace keksnl
 								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 						}
 
-					
-					}	
+
+					}
 
 					if (eventHandler)
 					{
@@ -399,7 +425,7 @@ namespace keksnl
 		// Handle new connection event
 		if (eventHandler)
 		{
-			// Handle new connection 
+			// Handle new connection
 			auto r = eventHandler.Call(ReliabilityEvents::NEW_CONNECTION, pPacket);
 			if (r != eventHandler.NO_EVENT /* this should not happen */ && r != eventHandler.ALL_TRUE /* one handler refused the connection */)
 			{
@@ -412,8 +438,8 @@ namespace keksnl
 		}
 
 		RemoteSystem system;
-		// This is not correct 
-		/* We have to create a new remote socket 
+		// This is not correct
+		/* We have to create a new remote socket
 			But it its ok for testing purposes
 		*/
 
@@ -538,7 +564,7 @@ namespace keksnl
 		if (m_pSocket)
 			m_pSocket->Send(m_RemoteSocketAddress, out.Data(), out.Size());
 
-		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));;
+		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 
 		if (rerun)
 			SendACKs();

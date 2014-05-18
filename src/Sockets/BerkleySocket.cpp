@@ -37,7 +37,7 @@ namespace keksnl
 #ifdef WIN32
 	WSADATA wsaData;
 #endif
-	
+
 	CBerkleySocket::CBerkleySocket()
 	{
 // NOTE: this will later be moved so dont care atm
@@ -53,7 +53,7 @@ namespace keksnl
 		WSACleanup();
 #endif
 	}
-	
+
 	bool CBerkleySocket::Send(const SocketAddress &remoteSystem, const char* pData, size_t length)
 	{
 		int sentLen = 0;
@@ -71,7 +71,7 @@ namespace keksnl
 
 				printf("\nError code %d:  %s\n\n", errCode, errString);
 
-				LocalFree(errString); // if you don't do this, you will get an
+				LocalFree(errString); // if you don't do this, you will get a memory leak
 #endif
 			}
 		}
@@ -104,7 +104,7 @@ namespace keksnl
 
 
 		// TODO: set initial socket options
-		
+
 #if 0 // Actually this makes it slower, because of CPU Bound crap fucking threads are taking to much cpu - I will work on that later
 		u_long iMode = 1;
 		ioctlsocket(m_Socket, FIONBIO, &iMode);
@@ -118,7 +118,7 @@ namespace keksnl
 #ifdef WIN32
 			int errCode = WSAGetLastError();
 
-			LPSTR errString = NULL; 
+			LPSTR errString = NULL;
 
 			int size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
@@ -159,7 +159,7 @@ namespace keksnl
 		{
 			const auto recvFromBlocking = [](SOCKET _socket, InternalRecvPacket &packet) -> bool
 			{
-				
+
 				sockaddr_in sa;
 				socklen_t sockLen = sizeof(sa);
 
@@ -170,23 +170,24 @@ namespace keksnl
 				sa.sin_port = 0;
 
 				int recvLen = recvfrom(_socket, packet.data, sizeof(packet.data), flag, (sockaddr*)&sa, (socklen_t*)&sockLen);
-				
+
 				if (recvLen <= 0)
 				{
+					// TODO: output detailed error
 					return false;
 				}
-				
+
 				packet.remoteAddress.address.addr4.sin_family = sa.sin_family;
 				packet.remoteAddress.address.addr4.sin_port = sa.sin_port;
 				packet.remoteAddress.address.addr4.sin_addr.s_addr = sa.sin_addr.s_addr;
 				packet.bytesRead = recvLen;
 				packet.timeStamp = std::chrono::steady_clock::now();
-	
+
 				return true;
 			};
 
-			
-			
+
+
 			// TODO: handle return
 			if (recvFromBlocking(m_Socket, *packet))
 			{
@@ -202,7 +203,7 @@ namespace keksnl
 				packet = new InternalRecvPacket();
 			}
 			else
-				Sleep(0);
+				std::this_thread::yield();
 
 		}
 
@@ -219,7 +220,7 @@ namespace keksnl
 		std::thread rTh(&CBerkleySocket::RecvFromLoop, this);
 		receiveThread = std::move(rTh);
 		receiveThread.detach();
-		
+
 		bRecvThreadRunning = true;
 	}
 

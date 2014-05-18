@@ -57,8 +57,6 @@ public:
 
 	bool OnReceive(keksnl::InternalRecvPacket* pPacket)
 	{
-		//std::lock_guard<std::mutex> m{bufferMutex};
-
 		// If its a known system distribute the packet to the systems reliability layer
 		for (auto &system : remoteSystems)
 		{
@@ -74,19 +72,70 @@ public:
 		return true;
 	}
 
+	bool HandleDisconnect(keksnl::SocketAddress address, keksnl::DisconnectReason reason)
+	{
+		int i = 0;
+		for (auto &system : remoteSystems)
+		{
+			if (address == system->reliabilityLayer.GetRemoteAddress())
+			{
+				remoteSystems.erase(remoteSystems.begin() + i);
+				remoteSystems.shrink_to_fit();
+				return true;
+			}
+
+			++i;
+		}
+
+		return false;
+	}
+
 	keksnl::ISocket * GetSocket()
 	{
 		return pSocket;
 	}
 
-	void Start(unsigned short usPort)
+	void Start(const char *szAddress, unsigned short usPort)
 	{
 		keksnl::SocketBindArguments bi;
 
 		bi.usPort = usPort;
+		bi.szHostAddress = szAddress;
 
 		pSocket->Bind(bi);
 		pSocket->StartReceiving();
+	}
+
+	void Connect(const char * szRemoteAddress, unsigned short usPort)
+	{
+		keksnl::CBitStream bitStream{MAX_MTU_SIZE};
+
+		keksnl::DatagramHeader dh;
+		dh.isACK = false;
+		dh.isNACK = false;
+		dh.isReliable = false;
+		dh.sequenceNumber = 0;
+
+		dh.Serialize(bitStream);
+
+		bitStream.Write(keksnl::PacketReliability::UNRELIABLE);
+		bitStream.Write<unsigned short>(BITS_TO_BYTES(strlen("New connection request")));
+		bitStream.Write("New connection request", BITS_TO_BYTES(strlen("New connection request")));
+
+		keksnl::SocketAddress remoteAdd;
+
+		memset(&remoteAdd.address.addr4, 0, sizeof(sockaddr_in));
+		remoteAdd.address.addr4.sin_port = htons(usPort);
+
+		remoteAdd.address.addr4.sin_addr.s_addr = inet_addr(szRemoteAddress);
+		remoteAdd.address.addr4.sin_family = AF_INET;
+
+		if (GetSocket())
+			GetSocket()->Send(remoteAdd, bitStream.Data(), bitStream.Size());
+		else
+			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+
+		printf("Send\n");
 	}
 
 	bool HandlePacket(keksnl::InternalRecvPacket * packet)
@@ -100,7 +149,7 @@ public:
 
 		if (count == 100)
 			start = std::chrono::high_resolution_clock::now();
-		
+
 		countPerSec++;
 		count++;
 		char keks[100] = {0};
@@ -139,6 +188,8 @@ public:
 		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
 													new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::HandlePacket, this, std::placeholders::_1)));
 
+		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::CONNECTION_LOST_TIMEOUT,
+													new keksnl::EventN<keksnl::SocketAddress, keksnl::DisconnectReason>(std::bind(&Peer::HandleDisconnect, this, std::placeholders::_1, std::placeholders::_2)));
 		remoteSystems.push_back(system);
 
 		printf("New connection at %p\n", this);
@@ -167,8 +218,40 @@ double packetsPerSec = 0;
 
 #include <chrono>
 
-int main()
+int main(int argc, char** argv)
 {
+	if(argc > 1)
+	{
+		if(!strncmp(argv[1], "c", 1))
+		{
+			// Start the client
+			const char *szAddress = argv[2];
+			unsigned short usPort = atoi(argv[3]);
+			Peer * pPeer = new Peer();
+			pPeer->Start(0, usPort +1);
+			pPeer->Connect(szAddress, usPort);
+
+			while(true)
+			{
+				pPeer->Process();
+			}
+		}
+		else if(!strncmp(argv[1], "s", 1))
+		{
+			// Start the server
+			unsigned short usPort = atoi(argv[2]);
+			Peer * pPeer = new Peer();
+			pPeer->Start(0, usPort);
+
+			while(true)
+			{
+				pPeer->Process();
+			}
+		}
+		// Get the listening port
+	}
+
+
 #pragma region Speed Test
 #if 0
 	std::random_device rd;
@@ -329,9 +412,9 @@ int main()
 	peer2 = new Peer();
 	peer3 = new Peer();
 
-	peer1->Start(9999);
-	peer2->Start(10000);
-	peer3->Start(10001);
+	peer1->Start(0, 9999);
+	peer2->Start(0, 10000);
+	peer3->Start(0, 10001);
 	//socket2.StopReceiving();
 
 	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
@@ -362,11 +445,11 @@ int main()
 	sendFromPeerToPeer(*peer1, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
 
 	start = std::chrono::high_resolution_clock::now().min();
-	
+
 #ifdef WIN32
 	auto lastTitle = GetTickCount();
 #endif
-	
+
 	/*std::thread s1(send1);
 	std::thread s2(send2);*/
 
@@ -381,7 +464,7 @@ int main()
 		{
 			if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() > 1000)
 			{
-				
+
 				char title[MAX_PATH] = {0};
 				sprintf(title, "Packets per Second sent by Socket: %d\n", countPerSec);
 				countPerSec = 0;
@@ -390,16 +473,16 @@ int main()
 
 				start = std::chrono::high_resolution_clock::now();
 			}
-		
+
 		}
 #endif
 
-		//peer1->Send(*peer2, "jfdlaksjöfsdjfalösdjfklajsdfklasdjfl", strlen("jfdlaksjöfsdjfalösdjfklajsdfklasdjfl"));
+		//peer1->Send(*peer2, "jfdlaksjï¿½fsdjfalï¿½sdjfklajsdfklasdjfl", strlen("jfdlaksjï¿½fsdjfalï¿½sdjfklajsdfklasdjfl"));
 
 		peer1->Process();
 		peer2->Process();
 		peer3->Process();
-		
+
 		/*if (GetAsyncKeyState(VK_CONTROL))
 		{
 			_CrtDumpMemoryLeaks();
