@@ -81,6 +81,9 @@ public:
 			{
 				remoteSystems.erase(remoteSystems.begin() + i);
 				remoteSystems.shrink_to_fit();
+
+				this->reliabilityLayer.RemoveRemote(address);
+
 				return true;
 			}
 

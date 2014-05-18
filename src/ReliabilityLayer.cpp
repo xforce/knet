@@ -152,9 +152,8 @@ namespace keksnl
 		if(m_pSocket)
 		{
 			// Check for timeout
-			if(lastReceiveFromRemote.time_since_epoch().count() && ((curTime - lastReceiveFromRemote).count() >= 5000))
+			if(resendBuffer.size() && lastReceiveFromRemote.time_since_epoch().count() && ((curTime - lastReceiveFromRemote).count() >= 5000))
 			{
-
 				printf("Disconnect: Timeout\n");
 				// NOW send disconnect event so it will be removed in our peer
 				// The Peer which handles this event should stop listening for this socket by calling StopReceiving
@@ -309,6 +308,21 @@ namespace keksnl
 				resendBuffer.shrink_to_fit();
 
 			sendBuffer.clear();
+		}
+	}
+
+	void CReliabilityLayer::RemoveRemote(const SocketAddress& remoteAddress)
+	{
+		int i = 0;
+		for(auto& remote : remoteList)
+		{
+			if(remote.address == remoteAddress)
+			{
+				remoteList.erase(remoteList.begin() + i);
+				return;
+			}
+
+			++i;
 		}
 	}
 
@@ -477,9 +491,6 @@ namespace keksnl
 	{
 		m_RemoteSocketAddress = socketAddress;
 	}
-
-
-
 
 	void CReliabilityLayer::SendACKs()
 	{

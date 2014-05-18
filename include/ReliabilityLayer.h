@@ -326,6 +326,8 @@ namespace keksnl
 		}
 
 
+		void RemoveRemote(const SocketAddress &remoteAddress);
+
 		/* Getters/Setters */
 
 
