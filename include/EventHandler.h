@@ -129,7 +129,7 @@ namespace keksnl
 	template<typename T, typename... Ts>
 	struct remove_first_type<std::tuple<T, Ts...>>
 	{
-		typedef std::tuple<Ts...> type;
+		using event = EventN<Ts...>;
 	};
 
 
@@ -159,7 +159,7 @@ namespace keksnl
 
 		struct eventT
 		{
-			using eventType = typename EventN<Args...>;
+			using eventType = typename argTup::event;
 		};
 	};
 
@@ -232,8 +232,7 @@ namespace keksnl
 			//auto bn = std::bind<_Rx, _Farg0, _Types>(_Pmd, _Args);
 
 
-			return new Traits::eventT::eventType(bn);
-			return 0;
+			return new  typename Traits::eventT::eventType(bn);
 		}
 
 	template<class _Ret,
@@ -268,9 +267,13 @@ namespace keksnl
 		&& std::is_member_object_pointer<_Rx _Farg0::* const>::value,
 		Event*>::type mkEventN(_Rx _Farg0::* const _Pmd, _Types&&... _Args)
 	{
+		#if 0
 			using Traits = keksnl::function_traits<_Rx _Farg0::* const _Pmd>;
 			auto bn = std::bind(_Pmd, std::tuple_element<1, std::tuple<_Args...>>, placeholder_template<make_int_sequence<Traits::arity - 1>>{}...);
 			return new EventN<_Types...>(bn);
+		#else
+			return nullptr;
+		#endif
 	}
 	
 	//typedef int eventIds;

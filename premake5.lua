@@ -43,7 +43,7 @@ solution "KeksNL"
 			}
 
 		configuration "gmake"
-			buildoptions { "-std=c++11" }
+			buildoptions { "-std=c++1y" }
 			buildoptions { "-pthread" }
 			linkoptions { "-pthread" }
 		
