@@ -154,6 +154,16 @@ namespace keksnl
 
 		}
 
+		char * Data()
+		{
+			return pData;
+		}
+
+		unsigned short Size()
+		{
+			return dataLength;
+		}
+
 		ReliablePacket(char * data, size_t length)
 		{
 			pData = (char*)(malloc(length));

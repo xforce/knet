@@ -313,16 +313,16 @@ namespace keksnl
 
 	void CReliabilityLayer::RemoveRemote(const SocketAddress& remoteAddress)
 	{
-		int i = 0;
 		for(auto& remote : remoteList)
 		{
 			if(remote.address == remoteAddress)
 			{
-				remoteList.erase(remoteList.begin() + i);
+
+				//remoteList.erase(std::find(remoteList.begin(), remoteList.end(), remote));
+				remoteList.shrink_to_fit();
+
 				return;
 			}
-
-			++i;
 		}
 	}
 
@@ -420,14 +420,13 @@ namespace keksnl
 								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 						}
 
-
+						if (eventHandler)
+						{
+							eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+						}
 					}
 
-					if (eventHandler)
-					{
-						eventHandler.Call(ReliabilityEvents::HANDLE_PACKET, pPacket);
-
-					}
+					
 				}
 
 				return true;

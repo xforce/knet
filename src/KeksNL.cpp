@@ -19,6 +19,11 @@ int countPerSec = 0;
 
 std::chrono::high_resolution_clock::time_point start;
 
+bool ahaskdj(keksnl::InternalRecvPacket*)
+{
+	return true;
+}
+
 class Peer
 {
 private:
@@ -44,11 +49,11 @@ public:
 		pSocket = new keksnl::CBerkleySocket();
 
 		// Now connect our peer with the socket
-		pSocket->GetEventHandler().AddEvent(keksnl::SocketEvents::RECEIVE, new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::OnReceive, this, std::placeholders::_1)));
+		pSocket->GetEventHandler().AddEvent(keksnl::SocketEvents::RECEIVE, new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::OnReceive, this, std::placeholders::_1)));		
 
 		// Not we want to handle the received packets in our reliabilityLayer
 		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
-															new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::HandlePacket, this, std::placeholders::_1)));
+													keksnl::mkEventN(&Peer::HandlePacket, this));
 
 		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::NEW_CONNECTION,
 															new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::HandleNewConnection, this, std::placeholders::_1)));
@@ -74,20 +79,17 @@ public:
 
 	bool HandleDisconnect(keksnl::SocketAddress address, keksnl::DisconnectReason reason)
 	{
-		int i = 0;
 		for (auto &system : remoteSystems)
 		{
 			if (address == system->reliabilityLayer.GetRemoteAddress())
 			{
-				remoteSystems.erase(remoteSystems.begin() + i);
+				remoteSystems.erase(std::find(remoteSystems.begin(), remoteSystems.end(), system));
 				remoteSystems.shrink_to_fit();
 
 				this->reliabilityLayer.RemoveRemote(address);
 
 				return true;
 			}
-
-			++i;
 		}
 
 		return false;
@@ -141,13 +143,8 @@ public:
 		printf("Send\n");
 	}
 
-	bool HandlePacket(keksnl::InternalRecvPacket * packet)
+	bool HandlePacket(keksnl::SocketAddress& remoteAddress)
 	{
-		keksnl::CBitStream bitStream((unsigned char*)packet->data, packet->bytesRead, true);
-		//keksnl::ReliablePacket relPacket;
-		//relPacket.Deserialize(bitStream);
-
-
 		//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		if (count == 100)
@@ -160,11 +157,10 @@ public:
 		msg1 = "Keks count %d";
 		//std::chrono::milliseconds dura(2000);
 		//std::this_thread::sleep_for(dura);
-		packet->remoteAddress.address.addr4.sin_family = AF_INET;
 
-		for (auto &system : remoteSystems)
+		for (auto system : remoteSystems)
 		{
-			if (packet->remoteAddress == system->reliabilityLayer.GetRemoteAddress())
+			if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
 			{
 				// Send back
 				Send(*system, msg1.c_str(), msg1.size() + 1);
@@ -189,7 +185,7 @@ public:
 
 		// we want all handle events in our peer
 		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
-													new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::HandlePacket, this, std::placeholders::_1)));
+															keksnl::mkEventN(&Peer::HandlePacket, this));
 
 		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::CONNECTION_LOST_TIMEOUT,
 													new keksnl::EventN<keksnl::SocketAddress, keksnl::DisconnectReason>(std::bind(&Peer::HandleDisconnect, this, std::placeholders::_1, std::placeholders::_2)));
@@ -231,7 +227,7 @@ int main(int argc, char** argv)
 			const char *szAddress = argv[2];
 			unsigned short usPort = atoi(argv[3]);
 			Peer * pPeer = new Peer();
-			pPeer->Start(0, usPort +1);
+			pPeer->Start(0, usPort + 1);
 			pPeer->Connect(szAddress, usPort);
 
 			while(true)
@@ -241,17 +237,22 @@ int main(int argc, char** argv)
 		}
 		else if(!strncmp(argv[1], "s", 1))
 		{
-			// Start the server
+			
+
+			// Get the listening port
 			unsigned short usPort = atoi(argv[2]);
 			Peer * pPeer = new Peer();
+
+			// Start the server
 			pPeer->Start(0, usPort);
+
 
 			while(true)
 			{
 				pPeer->Process();
 			}
 		}
-		// Get the listening port
+		
 	}
 
 
