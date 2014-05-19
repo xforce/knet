@@ -68,7 +68,19 @@ namespace keksnl
 {
 	class Event
 	{
+	private:
+		void * owner = nullptr;
 	public:
+
+		void SetOwner(void * owner)
+		{
+			this->owner = owner;
+		}
+
+		void * GetOwner()
+		{
+			return owner;
+		}
 	};
 
 	template<typename... Args>
@@ -315,8 +327,29 @@ namespace keksnl
 			MAX_RESULT,
 		};
 
-		void AddEvent(eventIds id, Event* pEvent)
+		void RemoveEventsByOwner(void * owner)
 		{
+			for(auto &eventCon : events)
+			{
+				eventCon.second.erase(std::remove_if(eventCon.second.begin(), eventCon.second.end(), [&](Event * pEvent) -> bool {
+					if(pEvent->GetOwner() == owner)
+					{
+						delete pEvent;
+						return true;
+					}
+					else
+						return false;
+				}));
+			}
+		}
+
+		void AddEvent(eventIds id, Event* pEvent, void * owner = nullptr)
+		{
+			if (!pEvent)
+				return;
+
+			pEvent->SetOwner(owner);
+
 			for (auto& entry : events)
 			{
 				if (entry.first == id)
@@ -325,6 +358,7 @@ namespace keksnl
 					return;
 				}
 			}
+
 			events.push_back({id, std::vector<Event*> {pEvent}});
 		}
 

@@ -57,16 +57,27 @@ public:
 		pSocket = new keksnl::CBerkleySocket();
 
 		// Now connect our peer with the socket
-		pSocket->GetEventHandler().AddEvent(keksnl::SocketEvents::RECEIVE, keksnl::mkEventN(&Peer::OnReceive, this));
+		pSocket->GetEventHandler().AddEvent(keksnl::SocketEvents::RECEIVE, keksnl::mkEventN(&Peer::OnReceive, this), this);
 
 		// Not we want to handle the received packets in our reliabilityLayer
 		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
-													keksnl::mkEventN(&Peer::HandlePacket, this));
+													keksnl::mkEventN(&Peer::HandlePacket, this), this);
 
 		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::NEW_CONNECTION,
-															keksnl::mkEventN(&Peer::HandleNewConnection, this));
+															keksnl::mkEventN(&Peer::HandleNewConnection, this), this);
 	}
 
+	~Peer()
+	{
+		pSocket->GetEventHandler().RemoveEventsByOwner(this);
+		reliabilityLayer.GetEventHandler().RemoveEventsByOwner(this);
+
+		for(auto &system : remoteSystems)
+		{
+			system->reliabilityLayer.GetEventHandler().RemoveEventsByOwner(this);
+		}
+
+	}
 
 	bool OnReceive(keksnl::InternalRecvPacket* pPacket)
 	{
@@ -193,10 +204,10 @@ public:
 
 		// we want all handle events in our peer
 		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
-															keksnl::mkEventN(&Peer::HandlePacket, this));
+															keksnl::mkEventN(&Peer::HandlePacket, this), this);
 
 		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::CONNECTION_LOST_TIMEOUT,
-													keksnl::mkEventN(&Peer::HandleDisconnect, this));
+													keksnl::mkEventN(&Peer::HandleDisconnect, this), this);
 		remoteSystems.push_back(system);
 
 		printf("New connection at %p\n", this);
