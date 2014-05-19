@@ -24,6 +24,14 @@ bool ahaskdj(keksnl::InternalRecvPacket*)
 	return true;
 }
 
+
+bool PublicReceiveHandler(keksnl::InternalRecvPacket* pPacket)
+{
+
+	printf("Public handler\n");
+	return true;
+}
+
 class Peer
 {
 private:
@@ -49,14 +57,14 @@ public:
 		pSocket = new keksnl::CBerkleySocket();
 
 		// Now connect our peer with the socket
-		pSocket->GetEventHandler().AddEvent(keksnl::SocketEvents::RECEIVE, new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::OnReceive, this, std::placeholders::_1)));		
+		pSocket->GetEventHandler().AddEvent(keksnl::SocketEvents::RECEIVE, keksnl::mkEventN(&Peer::OnReceive, this));
 
 		// Not we want to handle the received packets in our reliabilityLayer
 		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
 													keksnl::mkEventN(&Peer::HandlePacket, this));
 
 		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::NEW_CONNECTION,
-															new keksnl::EventN<keksnl::InternalRecvPacket*>(std::bind(&Peer::HandleNewConnection, this, std::placeholders::_1)));
+															keksnl::mkEventN(&Peer::HandleNewConnection, this));
 	}
 
 
@@ -188,7 +196,7 @@ public:
 															keksnl::mkEventN(&Peer::HandlePacket, this));
 
 		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::CONNECTION_LOST_TIMEOUT,
-													new keksnl::EventN<keksnl::SocketAddress, keksnl::DisconnectReason>(std::bind(&Peer::HandleDisconnect, this, std::placeholders::_1, std::placeholders::_2)));
+													keksnl::mkEventN(&Peer::HandleDisconnect, this));
 		remoteSystems.push_back(system);
 
 		printf("New connection at %p\n", this);
@@ -409,8 +417,6 @@ int main(int argc, char** argv)
 	}
 #endif
 #pragma endregion
-
-
 
 	peer1 = new Peer();
 	peer2 = new Peer();

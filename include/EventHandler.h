@@ -45,22 +45,24 @@ template<int...> struct int_sequence { };
 template<int N, int... Is> struct make_int_sequence
 : make_int_sequence<N - 1, N - 1, Is...>
 { };
+
+
 template<int... Is> struct make_int_sequence<0, Is...>
 	: int_sequence<Is...>{ };
 
-	template<int> // begin with 0 here!
-	struct placeholder_template
+template<int> // begin with 0 here!
+struct placeholder_template
+{ };
+
+
+
+namespace std
+{
+	template<int N>
+	struct is_placeholder< placeholder_template<N> >
+		: integral_constant<int, N + 1> // the one is important
 	{ };
-
-
-
-	namespace std
-	{
-		template<int N>
-		struct is_placeholder< placeholder_template<N> >
-			: integral_constant<int, N + 1> // the one is important
-		{ };
-	}
+}
 
 namespace keksnl
 {
@@ -132,6 +134,30 @@ namespace keksnl
 		using event = EventN<Ts...>;
 	};
 
+		// functor
+	template<class F>
+	struct function_traits
+	{
+	    private:
+	        using call_type = function_traits<decltype(&F::operator())>;
+	    public:
+	        using return_type = typename call_type::return_type;
+	 
+	        static constexpr std::size_t arity = call_type::arity - 1;
+	 
+	        template <std::size_t N>
+	        struct argument
+	        {
+	            static_assert(N < arity, "error: invalid parameter index.");
+	            using type = typename call_type::template argument<N+1>::type;
+	        };
+
+	        struct eventT
+			{
+				using eventType = typename call_type::eventT::eventType;
+			};
+	};
+
 
 	template<class R, class... Args>
 	struct function_traits<R(Args...)>
@@ -144,12 +170,6 @@ namespace keksnl
 
 		static constexpr int arity = sizeof...(Args);
 
-		
-		/*std::tuple<Args...> types
-		{
-			return std::tuple<Args...>;
-		};*/
-
 		template <int N>
 		struct argument
 		{
@@ -161,20 +181,42 @@ namespace keksnl
 		{
 			using eventType = typename argTup::event;
 		};
+
+		struct eventObj
+		{
+			using eventType = EventN<Args...>;
+		};
 	};
 
 
 
+	struct bind_helper
+	{
+		template<class _Rx,
+		class... _Ftypes,
+		int... Is>
+		static auto bind(_Rx(*_Pfx)(_Ftypes...), int_sequence<Is...>)
+		{
+			return std::bind(_Pfx, placeholder_template<Is>{}...);
+		}
 
+
+		template<class _Rx,
+		class... _Ftypes>
+		static auto bind(_Rx(*_Pfx)(_Ftypes...))
+		{
+			return bind<_Rx, _Ftypes...>(_Pfx, make_int_sequence<sizeof...(_Ftypes)>{});
+		}
+	};
 
 
 	// TEMPLATE FUNCTION bind (implicit return type)
-	template<class _Fun,
-	class... _Types>
+	template<class _Fun>
 		Event *
-		mkEventN(_Fun&& _Fx, _Types&&... _Args)
-	{	// bind a function object
-			return 0;
+		mkEventN(_Fun&& _Fx)
+		{	// bind a function object
+			using Traits = function_traits<_Fun>;
+			return new typename Traits::eventT::eventType(_Fx);
 		}
 
 	template<class _Rx,
@@ -182,59 +224,45 @@ namespace keksnl
 	class... _Types>
 		Event *
 		mkEventN(_Rx(*_Pfx)(_Ftypes...), _Types&&... _Args)
-	{	// bind a function pointer
-			return 0;
+		{	// bind a function pointer
+			
+			auto bn = bind_helper::bind<_Rx, _Ftypes...>(_Pfx);
+			return new EventN<_Ftypes...>(bn);
 		}
 
-	
-
-
-	template<class _Rx,
-	class _Farg0,
-	class _Types,
-	int... Is>
-	auto my_bind(_Rx _Farg0::* const _Pmd, _Types _this, int_sequence<Is...>)
+	struct this_bind_helper
 	{
-		/*template<class Ret, class C, class... Args, int... Is>
-		auto my_bind(Ret(C::*p)(Args...), int_sequence<Is...>)
+		template<class _Rx,
+		class _Farg0,
+		class _Types,
+		int... Is>
+		static auto bind(_Rx _Farg0::* const _Pmd, _Types _this, int_sequence<Is...>)
 		{
-			return std::bind(p, placeholder_template<Is>{}...);
+			return std::bind(_Pmd, _this, placeholder_template<Is>{}...);
 		}
-*/
-		return std::bind(_Pmd, _this, placeholder_template<Is>{}...);
-		
-		/*auto bn = (std::_Bind<false, void,
-				   std::_Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>, std::tuple<placeholder_template<Is>, _Types >...> (
-				   std::_Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>(_Pmd),
-				   std::forward<_Types>(_this),
-				   ));
 
-				   return bn;*/
-	}
-
-	template<int N, class _Rx,
-	class _Farg0,
-	class _Types>
-	auto my_bind(_Rx _Farg0::* const _Pmd, _Types _Args)
-	{
-		return my_bind<_Rx, _Farg0, _Types>(_Pmd, _Args, make_int_sequence<N - 1>{});
-	}
+		template<int N, class _Rx,
+		class _Farg0,
+		class _Types>
+		static auto bind(_Rx _Farg0::* const _Pmd, _Types _Args)
+		{
+			return bind<_Rx, _Farg0, _Types>(_Pmd, _Args, make_int_sequence<N - 1>{});
+		}
+	};
 
 	template<class _Rx,
 	class _Farg0,
 	class _Types>
 		Event *
 		mkEventN(_Rx _Farg0::* const _Pmd, _Types&& _Args)
-	{	// bind a wrapped member object pointer
-			using Traits = keksnl::function_traits<_Rx _Farg0::*>;
-
-			auto bn = my_bind<Traits::arity, _Rx, _Farg0, _Types>(_Pmd, _Args);
-			//auto bn = std::bind<_Rx, _Farg0, _Types>(_Pmd, _Args);
-
-
-			return new  typename Traits::eventT::eventType(bn);
+		{	// bind a wrapped member object pointer
+			using Traits = function_traits<_Rx _Farg0::*>;
+			auto bn = this_bind_helper::bind<Traits::arity, _Rx, _Farg0, _Types>(_Pmd, _Args);
+			return new typename Traits::eventT::eventType(bn);
 		}
 
+
+#if 0 // Not needed this is used for return type cast which is not used in our event handler, if we need this later we can implement it
 	template<class _Ret,
 	class _Fun,
 	class... _Types>
@@ -242,8 +270,6 @@ namespace keksnl
 		&& !std::is_member_pointer<_Fun>::value,
 		Event*>::type mkEventN(_Fun&& _Fx, _Types&&... _Args)
 		{	// bind a function object
-
-
 			return nullptr;
 		}
 
@@ -254,8 +280,8 @@ namespace keksnl
 		typename std::enable_if<!std::is_same<_Ret, _Rx>::value,
 		Event *>::type
 		mkEventN(_Rx(*_Pfx)(_Ftypes...), _Types&&... _Args)
-	{	// bind a function pointer
-			return 0;
+		{	// bind a function pointer
+			return nullptr;
 		}
 
 
@@ -266,15 +292,10 @@ namespace keksnl
 		typename std::enable_if<!std::is_same<_Ret, _Rx>::value
 		&& std::is_member_object_pointer<_Rx _Farg0::* const>::value,
 		Event*>::type mkEventN(_Rx _Farg0::* const _Pmd, _Types&&... _Args)
-	{
-		#if 0
-			using Traits = keksnl::function_traits<_Rx _Farg0::* const _Pmd>;
-			auto bn = std::bind(_Pmd, std::tuple_element<1, std::tuple<_Args...>>, placeholder_template<make_int_sequence<Traits::arity - 1>>{}...);
-			return new EventN<_Types...>(bn);
-		#else
+		{
 			return nullptr;
-		#endif
-	}
+		}
+#endif
 	
 	//typedef int eventIds;
 
