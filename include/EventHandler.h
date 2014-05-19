@@ -331,7 +331,7 @@ namespace keksnl
 		{
 			for(auto &eventCon : events)
 			{
-				eventCon.second.erase(std::remove_if(eventCon.second.begin(), eventCon.second.end(), [&](Event * pEvent) -> bool {
+				eventCon.second.erase(std::remove_if(eventCon.second.begin(), eventCon.second.end(), [owner](Event * pEvent) -> bool {
 					if(pEvent->GetOwner() == owner)
 					{
 						delete pEvent;
