@@ -138,6 +138,15 @@ namespace keksnl
 		}
 	};
 
+
+	struct OrderedInfo
+	{
+		__int32_t index : 24;
+		char channel : 8;
+	};
+
+	static_assert(sizeof(keksnl::OrderedInfo) == 4, "OrderedInfo is too big or too small!");
+
 	struct ReliablePacket
 	{
 	private:
@@ -148,6 +157,7 @@ namespace keksnl
 	public:
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
 		PacketPriority priority;
+		OrderedInfo orderedInfo;
 
 		ReliablePacket()
 		{
@@ -281,6 +291,11 @@ namespace keksnl
 		{
 			ISocket * pSocket = nullptr;
 			SocketAddress address;
+
+			bool operator==(const RemoteSystem& system) const
+			{
+				return(pSocket == system.pSocket && address == system.address);
+			}
 		};
 
 	private:

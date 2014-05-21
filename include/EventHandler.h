@@ -274,7 +274,7 @@ namespace keksnl
 		}
 
 
-#if 0 // Not needed this is used for return type cast which is not used in our event handler, if we need this later we can implement it
+#if 0
 	template<class _Ret,
 	class _Fun,
 	class... _Types>
@@ -331,7 +331,7 @@ namespace keksnl
 		{
 			for(auto &eventCon : events)
 			{
-				eventCon.second.erase(std::remove_if(eventCon.second.begin(), eventCon.second.end(), [owner](Event * pEvent) -> bool {
+				eventCon.second.erase(std::remove_if(eventCon.second.begin(), eventCon.second.end(), [owner ](Event * pEvent) -> bool {
 					if(pEvent->GetOwner() == owner)
 					{
 						delete pEvent;

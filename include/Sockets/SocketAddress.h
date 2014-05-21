@@ -47,13 +47,7 @@ namespace keksnl
 			struct sockaddr_in addr4;
 		} address;
 
-		bool operator== (SocketAddress &cP1)
-		{
-			return (address.addr4.sin_addr.s_addr == cP1.address.addr4.sin_addr.s_addr
-					&& address.addr4.sin_port == cP1.address.addr4.sin_port);
-		}
-
-		bool operator== (const SocketAddress &cP1)
+		bool operator== (const SocketAddress &cP1) const
 		{
 			return (address.addr4.sin_addr.s_addr == cP1.address.addr4.sin_addr.s_addr
 					&& address.addr4.sin_port == cP1.address.addr4.sin_port);

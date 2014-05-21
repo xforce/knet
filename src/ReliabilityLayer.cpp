@@ -32,10 +32,11 @@
 
 namespace keksnl
 {
-
 	CReliabilityLayer::CReliabilityLayer(ISocket * pSocket)
 		: m_pSocket(pSocket)
 	{
+
+
 		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 		lastReceiveFromRemote = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 	}
@@ -117,6 +118,15 @@ namespace keksnl
 			sendPacket.reliability = reliability;
 			sendPacket.priority = priority;
 
+
+			if(reliability == PacketReliability::RELIABLE_ORDERED)
+			{
+				// TODO: 
+
+				sendPacket.orderedInfo.index = 0;
+				sendPacket.orderedInfo.channel = 0;
+			}
+
 			pDatagramPacket->packets.push_back(std::move(sendPacket));
 
 			pDatagramPacket->Serialize(bitStream);
@@ -134,6 +144,13 @@ namespace keksnl
 			ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
 			sendPacket.reliability = reliability;
 			sendPacket.priority = priority;
+
+			if(reliability == PacketReliability::RELIABLE_ORDERED)
+			{
+				// TODO: kekse
+				sendPacket.orderedInfo.index = 0;
+				sendPacket.orderedInfo.channel = 0;
+			}
 
 			sendBuffer.push_back(std::move(sendPacket));
 
@@ -313,12 +330,12 @@ namespace keksnl
 
 	void CReliabilityLayer::RemoveRemote(const SocketAddress& remoteAddress)
 	{
-		for(auto& remote : remoteList)
+		for(const auto& remote : remoteList)
 		{
 			if(remote.address == remoteAddress)
 			{
 
-				//remoteList.erase(std::find(remoteList.begin(), remoteList.end(), remote));
+				remoteList.erase(std::find(remoteList.begin(), remoteList.end(), remote));
 				remoteList.shrink_to_fit();
 
 				return;

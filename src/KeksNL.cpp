@@ -429,6 +429,8 @@ int main(int argc, char** argv)
 #endif
 #pragma endregion
 
+	static_assert(sizeof(keksnl::OrderedInfo) == 4, "OrderedInfo is too big!");
+
 	peer1 = new Peer();
 	peer2 = new Peer();
 	peer3 = new Peer();
