@@ -124,7 +124,7 @@ namespace keksnl
 				// TODO: 
 
 				sendPacket.orderedInfo.index = 0;
-				sendPacket.orderedInfo.channel = 0;
+				//sendPacket.orderedInfo.channel = 0;
 			}
 
 			pDatagramPacket->packets.push_back(std::move(sendPacket));
@@ -149,7 +149,7 @@ namespace keksnl
 			{
 				// TODO: kekse
 				sendPacket.orderedInfo.index = 0;
-				sendPacket.orderedInfo.channel = 0;
+				//sendPacket.orderedInfo.channel = 0;
 			}
 
 			sendBuffer.push_back(std::move(sendPacket));

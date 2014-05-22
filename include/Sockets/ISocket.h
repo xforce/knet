@@ -53,12 +53,12 @@ namespace keksnl
 		int socketProtocol = 0;
 	};
 
-	enum SocketType : char
+	enum SocketType : uint8
 	{
 		Berkley,
 	};
 
-	enum class SocketEvents : char
+	enum class SocketEvents : uint8
 	{
 		RECEIVE,
 		MAX_EVENTS,

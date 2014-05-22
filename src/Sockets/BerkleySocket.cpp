@@ -67,7 +67,7 @@ namespace keksnl
 
 				LPSTR errString = NULL;
 
-				int size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
+				int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
 				printf("\nError code %d:  %s\n\n", errCode, errString);
 
@@ -120,7 +120,7 @@ namespace keksnl
 
 			LPSTR errString = NULL;
 
-			int size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
+			int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
 			printf("Error code %d:  %s\n\n", errCode, errString);
 

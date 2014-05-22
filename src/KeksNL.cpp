@@ -238,6 +238,9 @@ double packetsPerSec = 0;
 
 int main(int argc, char** argv)
 {
+
+	printf("%d\n", sizeof(keksnl::OrderedInfo));
+
 	if(argc > 1)
 	{
 		if(!strncmp(argv[1], "c", 1))
@@ -429,8 +432,6 @@ int main(int argc, char** argv)
 #endif
 #pragma endregion
 
-	static_assert(sizeof(keksnl::OrderedInfo) == 4, "OrderedInfo is too big!");
-
 	peer1 = new Peer();
 	peer2 = new Peer();
 	peer3 = new Peer();
@@ -491,7 +492,7 @@ int main(int argc, char** argv)
 				char title[MAX_PATH] = {0};
 				sprintf(title, "Packets per Second sent by Socket: %d\n", countPerSec);
 				countPerSec = 0;
-				SetConsoleTitle(title);
+				SetConsoleTitleA(title);
 				lastTitle = GetTickCount();
 
 				start = std::chrono::high_resolution_clock::now();

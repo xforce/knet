@@ -41,7 +41,7 @@
 
 namespace keksnl
 {
-	enum class ReliabilityEvents : char
+	enum class ReliabilityEvents : uint8
 	{
 		RECEIVE = 0,
 		CONNECTION_LOST_TIMEOUT,
@@ -50,12 +50,12 @@ namespace keksnl
 		MAX_EVENTS,
 	};
 
-	enum class DisconnectReason : char
+	enum class DisconnectReason : uint8
 	{
 		TIMEOUT = 0,
 	};
 
-	enum class PacketPriority : char
+	enum class PacketPriority : uint8
 	{
 		/* Will skip send buffer, so you have the control when this packet is sent*/
 		IMMEDIATE = 0,
@@ -64,7 +64,7 @@ namespace keksnl
 		LOW
 	};
 
-	enum class PacketReliability : char
+	enum class PacketReliability : uint8
 	{
 		UNRELIABLE = 0,
 
@@ -138,14 +138,11 @@ namespace keksnl
 		}
 	};
 
-
 	struct OrderedInfo
 	{
-		__int32_t index : 24;
-		char channel : 8;
+		unsigned short index;
+		unsigned char channel;
 	};
-
-	static_assert(sizeof(keksnl::OrderedInfo) == 4, "OrderedInfo is too big or too small!");
 
 	struct ReliablePacket
 	{

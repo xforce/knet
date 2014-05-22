@@ -4,22 +4,48 @@ cmake_minimum_required (VERSION 2.8)
 include(CMakeDependentOption)
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Sets the configuration to build")
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Sets the configuration to build") # We will later change it to release
 endif()
 
 project(KeksNL)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-SET(GCC_COVERAGE_COMPILE_FLAGS "-std=c++1y -g -pthread")
-SET(GCC_COVERAGE_LINK_FLAGS    "-pthread")
+if(NOT MSVC)
+	SET(GCC_COVERAGE_COMPILE_FLAGS "-std=c++1y -g -pthread")
+	SET(GCC_COVERAGE_LINK_FLAGS    "-pthread")
 
-SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
-SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}" )
+	SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
+	SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}" )
+endif()
 
-
+if(MSVC OR MSVC_IDE) 
+  if( MSVC_VERSION LESS 1800 )       # VC11-/VS2012- 
+    message(FATAL_ERROR "The project requires C++11/C++14 features. " 
+      "You need at least Visual Studio 12 (Microsoft Visual Studio 2013), " 
+      "with Microsoft Visual C++ Compiler Nov 2013 CTP (CTP_Nov2013).") 
+  elseif( MSVC_VERSION EQUAL 1800 )  # VC12/VS2013
+	if(NOT CMAKE_GENERATOR_TOOLSET STREQUAL  "CTP_Nov2013")
+		message( "VC12: use Microsoft Visual Studio 2013 " 
+		  "with Microsoft Visual C++ Compiler Nov 2013 CTP (CTP_Nov2013)" ) 
+		set(CMAKE_GENERATOR_TOOLSET "CTP_Nov2013" CACHE STRING "Platform Toolset" FORCE)
+	endif()	
+  else() # VC13+, assuming C++11/C++14  supported. 
+  endif() 
+endif()
 
 find_package(Doxygen)
 
+# THX to cegui for that
+macro(_set_msvc_runtime_flags)
+    if (KEKSNL_MSVC_STATIC_RUNTIME)
+        foreach(_BUILD_CONFIG DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+            foreach(_BUILD_VARS CMAKE_CXX_FLAGS_${_BUILD_CONFIG} CMAKE_C_FLAGS_${_BUILD_CONFIG})
+                string(REGEX REPLACE /MD /MT ${_BUILD_VARS} ${${_BUILD_VARS}})
+            endforeach()
+        endforeach()
+    endif()
+endmacro()
 
 cmake_dependent_option( KEKSNL_MSVC_STATIC_RUNTIME "Specifies whether to the static runtime (/MT and /MTd) or the DLL runtime (/MD and /MDd).
 NOTE: This will also affect which set of dependency libraries are linked with." FALSE "MSVC" FALSE )
@@ -32,6 +58,7 @@ if(WIN32)
 	add_definitions(-D_CRT_SECURE_NO_WARNING -DNOMINMAX)
 
 	# Setup some msvc stuff
+	_set_msvc_runtime_flags()
 endif()
 
 # set build output locations
@@ -69,6 +96,16 @@ include_directories(include
 file (GLOB CORE_SOURCE_FILES src/*.cpp)
 file (GLOB SOCKET_SOURCE_FILES src/Sockets/*.cpp)
 
+
+source_group("Source Files"   FILES ${CORE_SOURCE_FILES})
+source_group("Source Files\\Sockets"      FILES ${SOCKET_SOURCE_FILES})
+source_group("Header Files"    FILES ${CORE_HEADER_FILES})
+source_group("Header Files\\Sockets"  FILES ${SOCKET_HEADER_FILES})
+
 set(SOURCE_FILES ${CORE_SOURCE_FILES} ${SOCKET_SOURCE_FILES})
 
-add_executable(KeksNL ${SOURCE_FILES})
+add_executable(KeksNL ${SOURCE_FILES} ${HEADER_FILES})
+
+if(WIN32)
+  target_link_libraries(KeksNL ws2_32)
+endif()
