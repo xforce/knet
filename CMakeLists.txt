@@ -2,6 +2,7 @@ cmake_minimum_required (VERSION 2.8)
 
 
 include(CMakeDependentOption)
+include(ExternalProject)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Sets the configuration to build") # We will later change it to release
@@ -19,19 +20,19 @@ if(NOT MSVC)
 	SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}" )
 endif()
 
-if(MSVC OR MSVC_IDE) 
-  if( MSVC_VERSION LESS 1800 )       # VC11-/VS2012- 
-    message(FATAL_ERROR "The project requires C++11/C++14 features. " 
-      "You need at least Visual Studio 12 (Microsoft Visual Studio 2013), " 
-      "with Microsoft Visual C++ Compiler Nov 2013 CTP (CTP_Nov2013).") 
+if(MSVC OR MSVC_IDE)
+  if( MSVC_VERSION LESS 1800 )       # VC11-/VS2012-
+    message(FATAL_ERROR "The project requires C++11/C++14 features. "
+      "You need at least Visual Studio 12 (Microsoft Visual Studio 2013), "
+      "with Microsoft Visual C++ Compiler Nov 2013 CTP (CTP_Nov2013).")
   elseif( MSVC_VERSION EQUAL 1800 )  # VC12/VS2013
 	if(NOT CMAKE_GENERATOR_TOOLSET STREQUAL  "CTP_Nov2013")
-		message( "VC12: use Microsoft Visual Studio 2013 " 
-		  "with Microsoft Visual C++ Compiler Nov 2013 CTP (CTP_Nov2013)" ) 
+		message( "VC12: use Microsoft Visual Studio 2013 "
+		  "with Microsoft Visual C++ Compiler Nov 2013 CTP (CTP_Nov2013)" )
 		set(CMAKE_GENERATOR_TOOLSET "CTP_Nov2013" CACHE STRING "Platform Toolset" FORCE)
-	endif()	
-  else() # VC13+, assuming C++11/C++14  supported. 
-  endif() 
+	endif()
+  else() # VC13+, assuming C++11/C++14  supported.
+  endif()
 endif()
 
 find_package(Doxygen)
@@ -73,8 +74,8 @@ if (WIN32)
 else()
     set (CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 endif()
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/debug)
+set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/release)
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
@@ -83,6 +84,13 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/debu
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/release)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+ExternalProject_Add(KeksLogger
+  GIT_REPOSITORY https://github.com/Crix-Dev/KeksLogger.git
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/vendor/KeksLogger
+  INSTALL_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+)
 
 file (GLOB CORE_HEADER_FILES include/*.h)
 file (GLOB SOCKET_HEADER_FILES include/Sockets/*.h)
@@ -106,6 +114,14 @@ set(SOURCE_FILES ${CORE_SOURCE_FILES} ${SOCKET_SOURCE_FILES})
 
 add_executable(KeksNL ${SOURCE_FILES} ${HEADER_FILES})
 
+add_dependencies(KeksNL KeksLogger)
+
 if(WIN32)
   target_link_libraries(KeksNL ws2_32)
 endif()
+
+ExternalProject_Get_Property(KeksLogger install_dir)
+
+
+# Link does not work the path i get is wrong/the install path given to ExternalProject_Add is not used, but i dont know why
+#target_link_libraries(KeksNL ${install_dir}/lib/libKeksLogger.a)

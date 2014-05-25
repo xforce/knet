@@ -77,7 +77,7 @@ namespace keksnl
 	class CFlowControlHelper
 	{
 	private:
-		int sequenceNumber = 0;
+		int32 sequenceNumber = 0;
 
 	public:
 
@@ -140,8 +140,8 @@ namespace keksnl
 
 	struct OrderedInfo
 	{
-		unsigned short index;
-		unsigned char channel;
+		uint16 index;
+		uint8 channel;
 	};
 
 	struct ReliablePacket
@@ -149,7 +149,7 @@ namespace keksnl
 	private:
 		bool selfAllocated = false;
 		char * pData = nullptr;
-		unsigned short dataLength = 0;
+		uint16 dataLength = 0;
 
 	public:
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
@@ -166,7 +166,7 @@ namespace keksnl
 			return pData;
 		}
 
-		unsigned short Size()
+		decltype(dataLength) Size()
 		{
 			return dataLength;
 		}
@@ -198,6 +198,12 @@ namespace keksnl
 		void Serialize(CBitStream &bitStream)
 		{
 			bitStream.Write(reliability);
+
+			if(reliability == PacketReliability::RELIABLE_ORDERED)
+			{
+				bitStream.Write(orderedInfo);
+			}
+
 			bitStream.Write(dataLength);
 			bitStream.Write(pData, dataLength);
 		}
@@ -205,6 +211,12 @@ namespace keksnl
 		void Deserialize(CBitStream &bitStream)
 		{
 			bitStream.Read(reliability);
+
+			if(reliability == PacketReliability::RELIABLE_ORDERED)
+			{
+				bitStream.Read(orderedInfo);
+			}
+
 			bitStream.Read(dataLength);
 
 			if (pData)
@@ -233,7 +245,6 @@ namespace keksnl
 	{
 		DatagramHeader header;
 
-		/* Just hacky atm, i will make it better later */
 		std::vector<ReliablePacket> packets;
 
 		DatagramPacket()
@@ -299,6 +310,8 @@ namespace keksnl
 		ISocket * m_pSocket = nullptr;
 		SocketAddress m_RemoteSocketAddress;
 
+		uint8 orderingChannel = 0;
+
 		CFlowControlHelper flowControlHelper;
 
 		EventHandler<ReliabilityEvents> eventHandler;
@@ -309,9 +322,9 @@ namespace keksnl
 
 		std::mutex bufferMutex;
 
+		std::array<uint32, std::numeric_limits<decltype(orderingChannel)>::max()> orderingIndex;
 
 		std::queue<InternalRecvPacket*> bufferedPacketQueue;
-
 
 
 		std::vector<RemoteSystem> remoteList;
@@ -352,6 +365,9 @@ namespace keksnl
 
 		/* Getters/Setters */
 
+
+		uint8 GetOrderingChannel();
+		void SetOrderingChannel(uint8 ucChannel);
 
 		ISocket * GetSocket();
 		void SetSocket(ISocket * pSocket);

@@ -39,6 +39,11 @@ namespace keksnl
 
 		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 		lastReceiveFromRemote = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
+
+		for(int i = 0; i < orderingIndex.size(); ++i)
+		{
+			orderingIndex[i] = 0;
+		}
 	}
 
 	CReliabilityLayer::~CReliabilityLayer()
@@ -121,10 +126,8 @@ namespace keksnl
 
 			if(reliability == PacketReliability::RELIABLE_ORDERED)
 			{
-				// TODO: 
-
-				sendPacket.orderedInfo.index = 0;
-				//sendPacket.orderedInfo.channel = 0;
+				sendPacket.orderedInfo.index = orderingIndex[orderingChannel]++;
+				sendPacket.orderedInfo.channel = orderingChannel;
 			}
 
 			pDatagramPacket->packets.push_back(std::move(sendPacket));
@@ -147,9 +150,8 @@ namespace keksnl
 
 			if(reliability == PacketReliability::RELIABLE_ORDERED)
 			{
-				// TODO: kekse
-				sendPacket.orderedInfo.index = 0;
-				//sendPacket.orderedInfo.channel = 0;
+				sendPacket.orderedInfo.index = orderingIndex[orderingChannel]++;
+				sendPacket.orderedInfo.channel = orderingChannel;
 			}
 
 			sendBuffer.push_back(std::move(sendPacket));
@@ -437,9 +439,16 @@ namespace keksnl
 								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 						}
 
-						if (eventHandler)
+						if(packet.reliability == PacketReliability::RELIABLE_ORDERED)
 						{
-							eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+
+						}
+						else
+						{
+							if (eventHandler)
+							{
+								eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+							}
 						}
 					}
 
