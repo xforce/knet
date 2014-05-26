@@ -28,7 +28,7 @@ bool ahaskdj(keksnl::InternalRecvPacket*)
 bool PublicReceiveHandler(keksnl::InternalRecvPacket* pPacket)
 {
 
-	printf("Public handler\n");
+	DEBUG_LOG("Public handler");
 	return true;
 }
 
@@ -157,9 +157,9 @@ public:
 		if (GetSocket())
 			GetSocket()->Send(remoteAdd, bitStream.Data(), bitStream.Size());
 		else
-			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+			DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
 
-		printf("Send\n");
+		DEBUG_LOG("Send");
 	}
 
 	bool HandlePacket(keksnl::SocketAddress& remoteAddress)
@@ -190,7 +190,7 @@ public:
 		/*if (packet->pSocket)
 			packet->pSocket->Send(packet->remoteAddress, msg1.c_str(), msg1.length());
 		else
-			printf("Socket is nullptr\n");*/
+			DEBUG_LOG("Socket is nullptr");*/
 		//std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 		return false;
@@ -210,7 +210,7 @@ public:
 													keksnl::mkEventN(&Peer::HandleDisconnect, this), this);
 		remoteSystems.push_back(system);
 
-		printf("New connection at %p\n", this);
+		DEBUG_LOG("New connection at %p", this);
 		return true;
 	};
 
@@ -234,12 +234,20 @@ double packetsPerSec = 0;
 #include <climits>
 #include <list>
 
+class PrintLogHander : public ILogHandler
+{
+	virtual void OnLog(ILogger * pLogger, LogLevel level, const char* szMsg)
+	{ 
+		printf("%s\n", szMsg);
+	};
+};
+
 #include <chrono>
 
 int main(int argc, char** argv)
 {
-
-	printf("%d\n", sizeof(keksnl::OrderedInfo));
+	GetLogger("KeksNL")->AddHandler(new PrintLogHander);
+	DEBUG_LOG("%d", sizeof(keksnl::OrderedInfo));
 
 	if(argc > 1)
 	{
@@ -301,10 +309,10 @@ int main(int argc, char** argv)
 
 	std::sort(sortVec.begin(), sortVec.end());
 
-	printf("Insert took %d ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-st).count());
+	DEBUG_LOG("Insert took %d ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-st).count());
 
 	st = std::chrono::high_resolution_clock::now();
-	printf("Insert took %d ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - st).count());
+	DEBUG_LOG("Insert took %d ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - st).count());
 
 	std::vector<unsigned short> acknowledgements{1, 2, 3, 4, 20, 21, 22, 25, 27 , 29, 30};
 
@@ -337,7 +345,7 @@ int main(int argc, char** argv)
 			bitStream.Write<unsigned short>(min);
 			bitStream.Write<unsigned short>(max);
 
-			printf("Write -1 %d %d\n", acknowledgements[i], acknowledgements[i]);
+			DEBUG_LOG("Write -1 %d %d", acknowledgements[i], acknowledgements[i]);
 
 			// Track the index we have written to
 			writtenTo = i;
@@ -352,7 +360,7 @@ int main(int argc, char** argv)
 			bitStream.Write<unsigned short>(min);
 			bitStream.Write<unsigned short>(max);
 
-			printf("Write %d %d\n", min, max);
+			DEBUG_LOG("Write %d %d", min, max);
 
 			// Track the index we have written to
 			writtenTo = i;
@@ -362,7 +370,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	printf("\n\n");
+	DEBUG_LOG("\n\n");
 
 	acknowledgements.clear();
 
@@ -407,7 +415,7 @@ int main(int argc, char** argv)
 			bitStream.Write(acknowledgements[i]);
 			bitStream.Write(acknowledgements[i]);
 
-			printf("Write -1 %d %d\n", acknowledgements[i], acknowledgements[i]);
+			DEBUG_LOG("Write -1 %d %d", acknowledgements[i], acknowledgements[i]);
 
 			// Track the index we have written to
 			writtenTo = i;
@@ -420,7 +428,7 @@ int main(int argc, char** argv)
 			bitStream.Write(min);
 			bitStream.Write(max);
 
-			printf("Write %d %d\n", min, max);
+			DEBUG_LOG("Write %d %d", min, max);
 
 			// Track the index we have written to
 			writtenTo = i;
@@ -431,6 +439,8 @@ int main(int argc, char** argv)
 	}
 #endif
 #pragma endregion
+
+	DEBUG_LOG("Startup");
 
 	peer1 = new Peer();
 	peer2 = new Peer();
@@ -460,9 +470,9 @@ int main(int argc, char** argv)
 		if (sender.GetSocket())
 			sender.GetSocket()->Send(peer.GetSocket()->GetSocketAddress(), bitStream.Data(), bitStream.Size());
 		else
-			printf("Invalid sender at [%s:%d]\n", __FILE__, __LINE__);
+			DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
 
-		printf("Send\n");
+		DEBUG_LOG("Send");
 	};
 
 	sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
@@ -490,7 +500,7 @@ int main(int argc, char** argv)
 			{
 
 				char title[MAX_PATH] = {0};
-				sprintf(title, "Packets per Second sent by Socket: %d\n", countPerSec);
+				sprintf(title, "Packets per Second sent by Socket: %d", countPerSec);
 				countPerSec = 0;
 				SetConsoleTitleA(title);
 				lastTitle = GetTickCount();
@@ -537,7 +547,7 @@ int main(int argc, char** argv)
 	//int hallo = 0;
 	//bit >> hallo;
 
-	//printf("Kekse it works: %d\n", hallo);
+	//DEBUG_LOG("Kekse it works: %d", hallo);
 
 	getchar();
 

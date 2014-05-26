@@ -181,6 +181,15 @@ typedef std::uint64_t uint64;
 #endif  // KEKSNL_EXPORT
 #endif
 
+#include <ILogger.h>
+
+#if _DEBUG
+//#define DEBUG_LOG(x) GetLogger("KeksNL")->debug(x);
+#define DEBUG_LOG GetLogger("KeksNL")->debug
+#else
+#define DEBUG_LOG(x) GetLogger("KeksNL")->debug(x);
+#endif
+
 #include "CBitStream.h"
 
 #define SYNCED_CLASS_BODY(...)

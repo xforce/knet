@@ -69,7 +69,7 @@ namespace keksnl
 
 				int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
-				printf("\nError code %d:  %s\n\n", errCode, errString);
+				DEBUG_LOG("\nError code %d:  %s\n\n", errCode, errString);
 
 				LocalFree(errString); // if you don't do this, you will get a memory leak
 #endif
@@ -122,7 +122,7 @@ namespace keksnl
 
 			int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
-			printf("Error code %d:  %s\n\n", errCode, errString);
+			DEBUG_LOG("Error code %d:  %s\n\n", errCode, errString);
 
 			LocalFree(errString); // if you don't do this, you will get an
 #endif

@@ -173,7 +173,7 @@ namespace keksnl
 			// Check for timeout
 			if(resendBuffer.size() && lastReceiveFromRemote.time_since_epoch().count() && ((curTime - lastReceiveFromRemote).count() >= 5000))
 			{
-				printf("Disconnect: Timeout\n");
+				DEBUG_LOG("Disconnect: Timeout");
 				// NOW send disconnect event so it will be removed in our peer
 				// The Peer which handles this event should stop listening for this socket by calling StopReceiving
 				// Then the peer should remove the Remote stuff on next process not in this handler
@@ -213,7 +213,7 @@ namespace keksnl
 
 				resendPacket.first = curTime;
 
-				printf("Resent packet %d\n", resendPacket.second->header.sequenceNumber);
+				DEBUG_LOG("Resent packet %d", resendPacket.second->header.sequenceNumber);
 
 				// Dont remove them because we dont have received an ack and the sequence number is same
 			}
@@ -298,7 +298,7 @@ namespace keksnl
 			}
 
 			if (sendBuffer.size())
-				;// printf("Sending %d bytes\n", bitStream.Size());
+				;// DEBUG_LOG("Sending %d bytes", bitStream.Size());
 
 			if (pUnrealiableDatagramPacket->packets.size())
 			{
@@ -353,7 +353,7 @@ namespace keksnl
 			{
 				CBitStream bitStream{(unsigned char*)pPacket->data, pPacket->bytesRead, true};
 
-				//printf("Process %d bytes\n", pPacket->bytesRead);
+				//DEBUG_LOG("Process %d bytes", pPacket->bytesRead);
 
 				// Handle Packet in Reliability Layer
 				DatagramPacket dPacket;
@@ -375,7 +375,7 @@ namespace keksnl
 						bitStream.Read(min);
 						bitStream.Read(max);
 
-						//printf("Got ACK for %d %d\n", min, max);
+						//DEBUG_LOG("Got ACK for %d %d", min, max);
 
 						ranges.push_back({min, max});
 					}
@@ -401,7 +401,7 @@ namespace keksnl
 							delete resendBuffer[i].second;
 							resendBuffer[i].second = nullptr;
 							resendBuffer.erase(resendBuffer.begin() + i);
-							//printf("Remove %d from resend list\n", i);
+							//DEBUG_LOG("Remove %d from resend list", i);
 							--i;
 							--size;
 						}
@@ -422,11 +422,11 @@ namespace keksnl
 					for (auto i : acknowledgements)
 					{
 						if (dh.sequenceNumber == i)
-							printf("Already in ACK list %d\n", i);
+							DEBUG_LOG("Already in ACK list %d", i);
 					}
 #endif
 
-					//printf("Got packet %d\n", dh.sequenceNumber);
+					//DEBUG_LOG("Got packet %d", dh.sequenceNumber);
 
 					if (dPacket.header.isReliable)
 						acknowledgements.push_back(dPacket.header.sequenceNumber);
