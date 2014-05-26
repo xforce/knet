@@ -56,7 +56,7 @@ option( KEKSNL_BUILD_STATIC_CONFIGURATION "Specifies whether the static configs 
 
 # Some windows specific stuff
 if(WIN32)
-	add_definitions(-D_CRT_SECURE_NO_WARNING -DNOMINMAX)
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS -DNOMINMAX)
 
 	# Setup some msvc stuff
 	_set_msvc_runtime_flags()
@@ -92,13 +92,18 @@ ExternalProject_Add(KeksLogger
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
 )
 
+ExternalProject_Get_Property(KeksLogger source_dir)
+
+set(KEKS_LOGGER_SOURCE ${source_dir})
+
 file (GLOB CORE_HEADER_FILES include/*.h)
 file (GLOB SOCKET_HEADER_FILES include/Sockets/*.h)
 
 set(HEADER_FILES ${CORE_HEADER_FILES} ${SOCKET_HEADER_FILES})
 
 include_directories(include
-							include/Sockets
+					include/Sockets
+					${KEKS_LOGGER_SOURCE}/include
 )
 
 file (GLOB CORE_SOURCE_FILES src/*.cpp)
@@ -122,6 +127,7 @@ endif()
 
 ExternalProject_Get_Property(KeksLogger install_dir)
 
+get_filename_component(${install_dir} ${install_dir} ABSOLUTE)
 
 # Link does not work the path i get is wrong/the install path given to ExternalProject_Add is not used, but i dont know why
-#target_link_libraries(KeksNL ${install_dir}/lib/libKeksLogger.a)
+target_link_libraries(KeksNL ${install_dir}/KeksLogger${CMAKE_STATIC_LIBRARY_SUFFIX})

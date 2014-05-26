@@ -322,7 +322,11 @@ namespace keksnl
 
 		std::mutex bufferMutex;
 
+#if WIN32
+		std::array<uint32, 255> orderingIndex;
+#else
 		std::array<uint32, std::numeric_limits<decltype(orderingChannel)>::max()> orderingIndex;
+#endif
 
 		std::queue<InternalRecvPacket*> bufferedPacketQueue;
 
