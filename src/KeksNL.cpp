@@ -65,6 +65,8 @@ public:
 
 		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::NEW_CONNECTION,
 															keksnl::mkEventN(&Peer::HandleNewConnection, this), this);
+
+		DEBUG_LOG("Local ReliabilityLayer {%p}", &reliabilityLayer);
 	}
 
 	~Peer()
@@ -210,7 +212,7 @@ public:
 													keksnl::mkEventN(&Peer::HandleDisconnect, this), this);
 		remoteSystems.push_back(system);
 
-		DEBUG_LOG("New connection at %p", this);
+		DEBUG_LOG("New connection {%p} at %p", &system->reliabilityLayer, this);
 		return true;
 	};
 

@@ -129,5 +129,11 @@ ExternalProject_Get_Property(KeksLogger install_dir)
 
 get_filename_component(${install_dir} ${install_dir} ABSOLUTE)
 
+if(WIN32)
+set(LIB_PREFIX "")
+else()
+set (LIB_PREFIX "lib")
+endif()
+
 # Link does not work the path i get is wrong/the install path given to ExternalProject_Add is not used, but i dont know why
-target_link_libraries(KeksNL ${install_dir}/KeksLogger${CMAKE_STATIC_LIBRARY_SUFFIX})
+target_link_libraries(KeksNL ${install_dir}/${LIB_PREFIX}KeksLogger${CMAKE_SHARED_LIBRARY_SUFFIX})

@@ -187,7 +187,7 @@ typedef std::uint64_t uint64;
 //#define DEBUG_LOG(x) GetLogger("KeksNL")->debug(x);
 #define DEBUG_LOG GetLogger("KeksNL")->debug
 #else
-#define DEBUG_LOG(x) GetLogger("KeksNL")->debug(x);
+#define DEBUG_LOG GetLogger("KeksNL")->debug
 #endif
 
 #include "CBitStream.h"

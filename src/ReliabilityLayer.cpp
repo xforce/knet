@@ -433,7 +433,8 @@ namespace keksnl
 
 					if (dPacket.header.isReliable)
 						acknowledgements.push_back(dPacket.header.sequenceNumber);
-
+					else
+						DEBUG_LOG("Got Unrealiable");
 
 					if (dPacket.header.isReliable)
 					{
