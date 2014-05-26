@@ -216,7 +216,7 @@ public:
 
 	void Send(System &peer, const char * data, size_t len)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketPriority::IMMEDIATE, keksnl::PacketReliability::RELIABLE);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketPriority::IMMEDIATE, keksnl::PacketReliability::RELIABLE_ORDERED);
 		//GetRelLayer()->GetSocket()->Send(peer.GetRelLayer()->GetSocket()->GetSocketAddress(), data, len);
 	}
 
@@ -477,6 +477,8 @@ int main(int argc, char** argv)
 
 	sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
 	sendFromPeerToPeer(*peer1, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
+	sendFromPeerToPeer(*peer3, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
+	sendFromPeerToPeer(*peer2, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
 
 	start = std::chrono::high_resolution_clock::now().min();
 
@@ -516,7 +518,7 @@ int main(int argc, char** argv)
 		peer1->Process();
 		peer2->Process();
 		peer3->Process();
-
+		peer1->Process();
 		/*if (GetAsyncKeyState(VK_CONTROL))
 		{
 			_CrtDumpMemoryLeaks();

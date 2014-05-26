@@ -183,8 +183,10 @@ namespace keksnl
 		{
 			this->pData = other.pData;
 			this->selfAllocated = other.selfAllocated;
+			this->priority = other.priority;
 			this->reliability = other.reliability;
 			this->dataLength = other.dataLength;
+			this->orderedInfo = other.orderedInfo;
 
 			other.pData = nullptr;
 		}
@@ -238,6 +240,20 @@ namespace keksnl
 		size_t GetSizeToSend()
 		{
 			return sizeof(dataLength)+dataLength;
+		}
+
+		ReliablePacket & operator=(const ReliablePacket &packet)
+		{
+			this->dataLength = packet.dataLength;
+			this->pData = packet.pData;
+			this->priority = packet.priority;
+			this->selfAllocated = false;
+			this->reliability = packet.reliability;
+			this->dataLength = packet.dataLength;
+			this->orderedInfo = packet.orderedInfo;
+			
+
+			return *this;
 		}
 	};
 
@@ -339,6 +355,19 @@ namespace keksnl
 		std::vector<ReliablePacket> sendBuffer;
 
 		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, DatagramPacket*>> resendBuffer;
+
+#if WIN32
+		std::array<std::vector<ReliablePacket>, 255> orderedPacketBuffer;
+#else
+		std::array<std::vector<ReliablePacket>, std::numeric_limits<decltype(orderingChannel)>::max()> orderedPacketBuffer;
+#endif
+
+
+#if WIN32
+		std::array<uint16, 255> lastOrderedIndex;
+#else
+		std::array<uint16, std::numeric_limits<decltype(orderingChannel)>::max()> lastOrderedIndex;
+#endif
 
 	private:
 		/* Methods */

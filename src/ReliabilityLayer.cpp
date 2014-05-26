@@ -44,6 +44,11 @@ namespace keksnl
 		{
 			orderingIndex[i] = 0;
 		}
+
+		for (int i = 0; i < lastOrderedIndex.size(); ++i)
+		{
+			lastOrderedIndex[i] = 0;
+		}
 	}
 
 	CReliabilityLayer::~CReliabilityLayer()
@@ -382,7 +387,7 @@ namespace keksnl
 
 					auto size = resendBuffer.size();
 
-					for (int i = 0; i < size; ++i)
+					for (int i = size-1; i >= 0; --i)
 					{
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
 						auto isInAckRange = [](decltype(ranges)& vecRange, int sequenceNumber) -> bool
@@ -402,8 +407,6 @@ namespace keksnl
 							resendBuffer[i].second = nullptr;
 							resendBuffer.erase(resendBuffer.begin() + i);
 							//DEBUG_LOG("Remove %d from resend list", i);
-							--i;
-							--size;
 						}
 					}
 
@@ -431,6 +434,13 @@ namespace keksnl
 					if (dPacket.header.isReliable)
 						acknowledgements.push_back(dPacket.header.sequenceNumber);
 
+
+					if (dPacket.header.isReliable)
+					{
+						if (dPacket.header.sequenceNumber == 0)
+							DEBUG_LOG("Got 0 on %p", this);
+					}
+
 					for (auto &packet : dPacket.packets)
 					{
 						if (packet.reliability >= PacketReliability::RELIABLE)
@@ -441,7 +451,7 @@ namespace keksnl
 
 						if(packet.reliability == PacketReliability::RELIABLE_ORDERED)
 						{
-
+							orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(packet));
 						}
 						else
 						{
@@ -452,7 +462,75 @@ namespace keksnl
 						}
 					}
 
-					
+					{ /* Ordered packet process */
+						int i = 0;
+						uint16 lastIndex = 0;
+						uint8 channel = 0;
+
+						for (auto & orderedPackets : orderedPacketBuffer)
+						{
+							if (orderedPackets.size())
+							{
+								std::sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
+								{
+									return (packet.orderedInfo.index < packet.orderedInfo.index);
+								});
+
+								if (orderedPackets.size())
+								{
+									lastIndex = lastOrderedIndex[orderedPackets.begin()->orderedInfo.channel];
+
+									for (auto &packet : orderedPackets)
+									{
+										if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+											firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
+										if (lastIndex > packet.orderedInfo.index)
+										{
+											// I hate this crap, there is something broken. seems like a big bug i will check that later
+
+											if (eventHandler)
+											{
+												eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+											}
+
+											orderedPackets.erase(orderedPackets.begin());
+
+											break;
+
+										}
+
+										if (packet.orderedInfo.index > 0 && packet.orderedInfo.index != (lastIndex + 1))
+										{
+											break;
+										}
+										else
+										{
+
+											if (packet.orderedInfo.index == 0)
+												DEBUG_LOG("Process 0 on %p", this);
+
+											lastIndex = packet.orderedInfo.index;
+											if (eventHandler)
+											{
+												eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+											}
+										}
+
+										++i;
+										channel = packet.orderedInfo.channel;
+									}
+								}
+
+								lastOrderedIndex[channel] = lastIndex;
+
+								if (i > 0)
+									orderedPackets.erase(orderedPackets.begin(), orderedPackets.begin() + i);
+								i = 0;
+								lastIndex = 0;
+							}
+						}
+					}
 				}
 
 				return true;
