@@ -458,7 +458,7 @@ namespace keksnl
 						{
 							if (eventHandler)
 							{
-								eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
 							}
 						}
 					}
@@ -488,11 +488,12 @@ namespace keksnl
 
 										if (lastIndex > packet.orderedInfo.index)
 										{
+											lastIndex = packet.orderedInfo.index;
 											// I hate this crap, there is something broken. seems like a big bug i will check that later
 
 											if (eventHandler)
 											{
-												eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+												eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
 											}
 
 											orderedPackets.erase(orderedPackets.begin());
@@ -514,7 +515,7 @@ namespace keksnl
 											lastIndex = packet.orderedInfo.index;
 											if (eventHandler)
 											{
-												eventHandler.Call<SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, pPacket->remoteAddress);
+												eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
 											}
 										}
 

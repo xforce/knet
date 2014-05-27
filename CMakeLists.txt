@@ -136,4 +136,8 @@ set (LIB_PREFIX "lib")
 endif()
 
 # Link does not work the path i get is wrong/the install path given to ExternalProject_Add is not used, but i dont know why
+if(WIN32)
+target_link_libraries(KeksNL ${install_dir}/${LIB_PREFIX}KeksLogger${CMAKE_STATIC_LIBRARY_SUFFIX})
+else()
 target_link_libraries(KeksNL ${install_dir}/${LIB_PREFIX}KeksLogger${CMAKE_SHARED_LIBRARY_SUFFIX})
+endif()

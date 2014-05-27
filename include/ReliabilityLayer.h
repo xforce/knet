@@ -406,6 +406,11 @@ namespace keksnl
 		void SetSocket(ISocket * pSocket);
 
 		const SocketAddress & GetRemoteAddress();
+
+		//! Sets the remote Socket address which is the connection endpoint
+		/*!
+		\param[in] socketAddress
+		*/
 		void SetRemoteAddress(SocketAddress &socketAddress);
 
 

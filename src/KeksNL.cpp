@@ -32,6 +32,12 @@ bool PublicReceiveHandler(keksnl::InternalRecvPacket* pPacket)
 	return true;
 }
 
+enum class MessageID : char
+{ 
+	CONNECTION_REQUEST,
+	CONNECTION_ACCEPTED,
+};
+
 class Peer
 {
 private:
@@ -145,8 +151,8 @@ public:
 		dh.Serialize(bitStream);
 
 		bitStream.Write(keksnl::PacketReliability::UNRELIABLE);
-		bitStream.Write<unsigned short>(BITS_TO_BYTES(strlen("New connection request")));
-		bitStream.Write("New connection request", BITS_TO_BYTES(strlen("New connection request")));
+		bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_REQUEST));
+		bitStream.Write(MessageID::CONNECTION_REQUEST);
 
 		keksnl::SocketAddress remoteAdd;
 
@@ -164,36 +170,82 @@ public:
 		DEBUG_LOG("Send");
 	}
 
-	bool HandlePacket(keksnl::SocketAddress& remoteAddress)
+	bool HandlePacket(keksnl::ReliablePacket &packet, keksnl::SocketAddress& remoteAddress)
 	{
 		//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		if (count == 100)
 			start = std::chrono::high_resolution_clock::now();
 
-		countPerSec++;
-		count++;
-		char keks[100] = {0};
-		//sprintf_s(keks, "Keks count %d", count++);
-		msg1 = "Keks count %d";
-		//std::chrono::milliseconds dura(2000);
-		//std::this_thread::sleep_for(dura);
+		char * pData = packet.Data();
 
-		for (auto system : remoteSystems)
+		if ((MessageID)pData[0] == MessageID::CONNECTION_REQUEST)
 		{
-			if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
+			DEBUG_LOG("Connection request");
+
+			keksnl::CBitStream bitStream{MAX_MTU_SIZE};
+
+			keksnl::DatagramHeader dh;
+			dh.isACK = false;
+			dh.isNACK = false;
+			dh.isReliable = false;
+			dh.sequenceNumber = 0;
+
+			dh.Serialize(bitStream);
+
+			bitStream.Write(keksnl::PacketReliability::UNRELIABLE);
+			bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_ACCEPTED));
+			bitStream.Write(MessageID::CONNECTION_ACCEPTED);
+
+			if (GetSocket())
+				GetSocket()->Send(remoteAddress, bitStream.Data(), bitStream.Size());
+			else
+				DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
+
+			DEBUG_LOG("Send");
+		}
+		else if ((MessageID)pData[0] == MessageID::CONNECTION_ACCEPTED)
+		{
+			DEBUG_LOG("Remote accepted our connection");
+
+			countPerSec++;
+			count++;
+			char keks[100] = {0};
+			//sprintf_s(keks, "Keks count %d", count++);
+			msg1 = "Keks count %d";
+			//std::chrono::milliseconds dura(2000);
+			//std::this_thread::sleep_for(dura);
+
+			for (auto system : remoteSystems)
 			{
-				// Send back
-				Send(*system, msg1.c_str(), msg1.size() + 1);
-				break;
+				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
+				{
+					// Send back
+					Send(*system, msg1.c_str(), msg1.size() + 1);
+					break;
+				}
 			}
 		}
-
-		/*if (packet->pSocket)
-			packet->pSocket->Send(packet->remoteAddress, msg1.c_str(), msg1.length());
 		else
-			DEBUG_LOG("Socket is nullptr");*/
-		//std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		{
+			countPerSec++;
+			count++;
+			char keks[100] = {0};
+			//sprintf_s(keks, "Keks count %d", count++);
+			msg1 = "Keks count %d";
+			//std::chrono::milliseconds dura(2000);
+			//std::this_thread::sleep_for(dura);
+
+			for (auto system : remoteSystems)
+			{
+				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
+				{
+					// Send back
+					Send(*system, msg1.c_str(), msg1.size() + 1);
+					break;
+				}
+			}
+		}
 
 		return false;
 	};
@@ -218,7 +270,7 @@ public:
 
 	void Send(System &peer, const char * data, size_t len)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketPriority::IMMEDIATE, keksnl::PacketReliability::RELIABLE_ORDERED);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketPriority::IMMEDIATE, keksnl::PacketReliability::RELIABLE);
 		//GetRelLayer()->GetSocket()->Send(peer.GetRelLayer()->GetSocket()->GetSocketAddress(), data, len);
 	}
 
@@ -442,7 +494,7 @@ int main(int argc, char** argv)
 #endif
 #pragma endregion
 
-	DEBUG_LOG("Startup");
+	DEBUG_LOG("Startup [performance]");
 
 	peer1 = new Peer();
 	peer2 = new Peer();
@@ -451,45 +503,17 @@ int main(int argc, char** argv)
 	peer1->Start(0, 9999);
 	peer2->Start(0, 10000);
 	peer3->Start(0, 10001);
-	//socket2.StopReceiving();
 
-	auto sendFromPeerToPeer = [](Peer &sender, Peer &peer, const char* data, size_t numberOfBits)
-	{
-		keksnl::CBitStream bitStream{MAX_MTU_SIZE};
+	peer1->Connect("127.0.0.1", 10000);
+	peer1->Connect("127.0.0.1", 10001);
 
-		keksnl::DatagramHeader dh;
-		dh.isACK = false;
-		dh.isNACK = false;
-		dh.isReliable = false;
-		dh.sequenceNumber = 0;
-
-		dh.Serialize(bitStream);
-
-		bitStream.Write(keksnl::PacketReliability::UNRELIABLE);
-		bitStream.Write<unsigned short>(BITS_TO_BYTES(numberOfBits));
-		bitStream.Write(data, BITS_TO_BYTES(numberOfBits));
-
-		if (sender.GetSocket())
-			sender.GetSocket()->Send(peer.GetSocket()->GetSocketAddress(), bitStream.Data(), bitStream.Size());
-		else
-			DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
-
-		DEBUG_LOG("Send");
-	};
-
-	sendFromPeerToPeer(*peer1, *peer2, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-	sendFromPeerToPeer(*peer1, *peer3, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-	sendFromPeerToPeer(*peer3, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
-	sendFromPeerToPeer(*peer2, *peer1, "Hallo wie gehts", BYTES_TO_BITS(sizeof("Hallo wie gehts")));
+	peer2->Connect("127.0.0.1", 9999);
 
 	start = std::chrono::high_resolution_clock::now().min();
 
 #ifdef WIN32
 	auto lastTitle = GetTickCount();
 #endif
-
-	/*std::thread s1(send1);
-	std::thread s2(send2);*/
 
 	while (true)
 	{
@@ -498,38 +522,28 @@ int main(int argc, char** argv)
 			packetsPerSec = (float)count / (float)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
 #ifdef WIN32
-		//if (lastTitle + 10 < GetTickCount())
+		if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() > 1000)
 		{
-			if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() > 1000)
-			{
 
-				char title[MAX_PATH] = {0};
-				sprintf(title, "Packets per Second sent by Socket: %d", countPerSec);
-				countPerSec = 0;
-				SetConsoleTitleA(title);
-				lastTitle = GetTickCount();
+			char title[MAX_PATH] = {0};
+			sprintf(title, "Packets per Second sent by Socket: %d", countPerSec);
+			countPerSec = 0;
+			SetConsoleTitleA(title);
+			lastTitle = GetTickCount();
 
-				start = std::chrono::high_resolution_clock::now();
-			}
-
+			start = std::chrono::high_resolution_clock::now();
 		}
 #endif
-
-		//peer1->Send(*peer2, "jfdlaksj�fsdjfal�sdjfklajsdfklasdjfl", strlen("jfdlaksj�fsdjfal�sdjfklajsdfklasdjfl"));
 
 		peer1->Process();
 		peer2->Process();
 		peer3->Process();
 		peer1->Process();
-		/*if (GetAsyncKeyState(VK_CONTROL))
-		{
-			_CrtDumpMemoryLeaks();
-			getchar();
 
-			__debugbreak();
-		}*/
 	}
 
+
+#pragma region Old BitStream Test Code
 	//keksnl::CBitStream bit;
 	//const char  *keks = "Hallo wie gehts!";
 	//bit.Write((unsigned char*)keks, strlen("Hallo wie gehts!") + 1);
@@ -552,6 +566,8 @@ int main(int argc, char** argv)
 	//bit >> hallo;
 
 	//DEBUG_LOG("Kekse it works: %d", hallo);
+
+#pragma endregion
 
 	getchar();
 
