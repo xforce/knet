@@ -464,6 +464,16 @@ namespace keksnl
 					}
 
 					{ /* Ordered packet process */
+						// TODO: fix this code, it is not really reliable/safe
+						/* Notes directly from my brain: rather than just sort by index which could be more than one times in the list we should also use the datagram sequence number
+							which makes it much better
+							then we should look in a packet if there is max ordered index and 0 we have to process max before 0 which is currently not
+							the case
+							we could also use time stamp which is slower and i think it would be same as using the datagram sequence
+							number
+							think about how a proper way to make it fast, safe and reliable
+						*/
+
 						int i = 0;
 						uint16 lastIndex = 0;
 						uint8 channel = 0;
@@ -492,7 +502,6 @@ namespace keksnl
 
 											if (packet.orderedInfo.index == 0)
 												DEBUG_LOG("Process ordered 0 on %p", this);
-											// I hate this crap, there is something broken. seems like a big bug i will check that later
 
 											if (eventHandler)
 											{
@@ -608,6 +617,8 @@ namespace keksnl
 		bool rerun = false;
 
 		// This seems to cause a bug sometimes
+		// But only a this position, we do it below and everything works fine
+		// I still dont know why
 		//acknowledgements.shrink_to_fit();
 
 		bool bnil = false;
@@ -625,6 +636,16 @@ namespace keksnl
 
 		if(acknowledgements[0] == 1)
 			DEBUG_LOG("0 1 on {%p}", this);
+
+
+		for(auto i : acknowledgements)
+		{
+			if(i == 0)
+			{
+				bnil = true;
+				DEBUG_LOG("double check on {%p} contains 0", this);
+			}
+		}
 
 		CBitStream bitStream{MAX_MTU_SIZE};
 
