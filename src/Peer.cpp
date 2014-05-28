@@ -28,7 +28,7 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "Peer.h"
+#include <Peer.h>
 
 #include <CBitStream.h>
 
@@ -105,7 +105,7 @@ namespace keksnl
 
 	void Peer::Send(System &peer, const char * data, size_t len)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), PacketPriority::IMMEDIATE, PacketReliability::RELIABLE);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), PacketPriority::IMMEDIATE, PacketReliability::RELIABLE_ORDERED);
 	}
 
 
@@ -197,6 +197,8 @@ namespace keksnl
 			{
 				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
 				{
+DEBUG_LOG("Send back");
+
 					// Send back
 					Send(*system, msg1.c_str(), msg1.size() + 1);
 					break;

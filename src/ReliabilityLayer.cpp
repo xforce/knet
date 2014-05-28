@@ -37,7 +37,7 @@ namespace keksnl
 	{
 
 
-		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
+		firstUnsentAck = firstUnsentAck.min(); //std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 		lastReceiveFromRemote = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 
 		for(int i = 0; i < orderingIndex.size(); ++i)
@@ -169,7 +169,7 @@ namespace keksnl
 	{
 		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
-		if (firstUnsentAck.time_since_epoch().count() > 0 && ((curTime - firstUnsentAck).count() >= 5000 || acknowledgements.size() > 100))
+		if ((firstUnsentAck.min() == firstUnsentAck || firstUnsentAck.time_since_epoch().count() > 0) && ((curTime - firstUnsentAck).count() >= 500))
 			SendACKs();
 
 
@@ -218,7 +218,7 @@ namespace keksnl
 
 				resendPacket.first = curTime;
 
-				DEBUG_LOG("Resent packet %d", resendPacket.second->header.sequenceNumber);
+				DEBUG_LOG("Resent packet %d on {%p}", resendPacket.second->header.sequenceNumber, this);
 
 				// Dont remove them because we dont have received an ack and the sequence number is same
 			}
@@ -380,7 +380,7 @@ namespace keksnl
 						bitStream.Read(min);
 						bitStream.Read(max);
 
-						//DEBUG_LOG("Got ACK for %d %d", min, max);
+						DEBUG_LOG("Got ACK for %d %d on {%p}", min, max, this);
 
 						ranges.push_back({min, max});
 					}
@@ -489,6 +489,9 @@ namespace keksnl
 										if (lastIndex > packet.orderedInfo.index)
 										{
 											lastIndex = packet.orderedInfo.index;
+
+											if (packet.orderedInfo.index == 0)
+												DEBUG_LOG("Process ordered 0 on %p", this);
 											// I hate this crap, there is something broken. seems like a big bug i will check that later
 
 											if (eventHandler)
@@ -510,7 +513,7 @@ namespace keksnl
 										{
 
 											if (packet.orderedInfo.index == 0)
-												DEBUG_LOG("Process 0 on %p", this);
+												DEBUG_LOG("Process ordered 0 on %p", this);
 
 											lastIndex = packet.orderedInfo.index;
 											if (eventHandler)
@@ -604,10 +607,24 @@ namespace keksnl
 
 		bool rerun = false;
 
-		acknowledgements.shrink_to_fit();
+		// This seems to cause a bug sometimes
+		//acknowledgements.shrink_to_fit();
+
+		bool bnil = false;
+		for(auto i : acknowledgements)
+		{
+			if(i == 0)
+			{
+				bnil = true;
+				DEBUG_LOG("on {%p} contains 0", this);
+			}
+		}
 
 		// Sort the unsorted vector so we can write the ranges
 		std::sort(acknowledgements.begin(), acknowledgements.end());
+
+		if(acknowledgements[0] == 1)
+			DEBUG_LOG("0 1 on {%p}", this);
 
 		CBitStream bitStream{MAX_MTU_SIZE};
 
@@ -634,6 +651,12 @@ namespace keksnl
 				min = acknowledgements[i];
 				max = acknowledgements[i];
 
+				if(min == 0)
+					DEBUG_LOG("Send ack for 0 on {%p}", this);
+
+				if(max == 101)
+					DEBUG_LOG("Send ack for 101 on {%p}", this);
+
 				bitStream.Write<SequenceNumberType>(min);
 				bitStream.Write<SequenceNumberType>(max);
 
@@ -647,6 +670,13 @@ namespace keksnl
 			{
 				// First diff at next so write max to current and write info to bitStream
 				max = acknowledgements[i];
+
+				if(min == 0)
+					DEBUG_LOG("Send ack for 0 on {%p}", this);
+
+				if(max == 101)
+					DEBUG_LOG("Send ack for 101 on {%p}", this);
+
 				bitStream.Write<SequenceNumberType>(min);
 				bitStream.Write<SequenceNumberType>(max);
 
@@ -665,7 +695,8 @@ namespace keksnl
 		}
 
 		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo + 1);
-
+		acknowledgements.shrink_to_fit();
+		
 		keksnl::CBitStream out{bitStream.Size() + 20 /* guessed header size */};
 
 		DatagramHeader dh;

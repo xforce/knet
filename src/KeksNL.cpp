@@ -92,12 +92,12 @@ int main(int argc, char** argv)
 #if 0
 	std::random_device rd;
 	std::mt19937 rnd;
-	std::uniform_int_distribution<USHORT> rndShort;
+	std::uniform_int_distribution<unsigned short> rndShort;
 	std::vector<unsigned short> vec;
 
-	for (int i = 0; i < USHRT_MAX/10-1; ++i)
+	for (int i = 0; i < 65530; ++i)
 	{
-		vec.push_back(rndShort(rnd));
+		vec.push_back(i);
 	}
 
 	auto st = std::chrono::high_resolution_clock::now();
@@ -116,10 +116,24 @@ int main(int argc, char** argv)
 	st = std::chrono::high_resolution_clock::now();
 	DEBUG_LOG("Insert took %d ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - st).count());
 
-	std::vector<unsigned short> acknowledgements{1, 2, 3, 4, 20, 21, 22, 25, 27 , 29, 30};
+	std::vector<unsigned short> acknowledgements{sortVec};
+
+	acknowledgements.shrink_to_fit();
+
+
+	for(auto i : acknowledgements)
+	{
+		if(i == 0)
+		{
+			DEBUG_LOG("on {%p} contains 0", 0);
+		}
+	}
 
 	// Sort the unsorted vector so we can write the ranges
 	std::sort(acknowledgements.begin(), acknowledgements.end());
+
+	if(acknowledgements[0] == 1)
+		DEBUG_LOG("0 1 on {%p}", 0);
 
 	keksnl::CBitStream bitStream;
 
@@ -248,6 +262,10 @@ int main(int argc, char** argv)
 	peer2 = new keksnl::Peer();
 	peer3 = new keksnl::Peer();
 
+	/*DEBUG_LOG("Peer1 == {%p}", peer1);
+	DEBUG_LOG("Peer2 == {%p}", peer2);
+	DEBUG_LOG("Peer3 == {%p}", peer3);*/
+
 	peer1->Start(0, 9999);
 	peer2->Start(0, 10000);
 	peer3->Start(0, 10001);
@@ -255,7 +273,7 @@ int main(int argc, char** argv)
 	peer1->Connect("127.0.0.1", 10000);
 	peer1->Connect("127.0.0.1", 10001);
 
-	peer2->Connect("127.0.0.1", 9999);
+	//peer2->Connect("127.0.0.1", 9999);
 
 	start = std::chrono::high_resolution_clock::now().min();
 
@@ -286,7 +304,6 @@ int main(int argc, char** argv)
 		peer1->Process();
 		peer2->Process();
 		peer3->Process();
-		peer1->Process();
 
 	}
 
