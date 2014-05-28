@@ -5,15 +5,14 @@
 
 #include "Sockets/BerkleySocket.h"
 #include "ReliabilityLayer.h"
+#include "Peer.h"
 
 std::string msg1 = "Keks count";
 int count = 0;
 
-class Peer;
-
-Peer *peer1;
-Peer *peer2;
-Peer *peer3;
+keksnl::Peer *peer1;
+keksnl::Peer *peer2;
+keksnl::Peer *peer3;
 
 int countPerSec = 0;
 
@@ -31,257 +30,6 @@ bool PublicReceiveHandler(keksnl::InternalRecvPacket* pPacket)
 	DEBUG_LOG("Public handler");
 	return true;
 }
-
-enum class MessageID : char
-{ 
-	CONNECTION_REQUEST,
-	CONNECTION_ACCEPTED,
-};
-
-class Peer
-{
-private:
-	keksnl::ISocket * pSocket = nullptr;
-
-	struct System
-	{
-		keksnl::CReliabilityLayer reliabilityLayer;
-
-	};
-
-	keksnl::CReliabilityLayer reliabilityLayer;
-
-	std::vector<System*> remoteSystems;
-
-	std::mutex bufferMutex;
-	std::queue<keksnl::InternalRecvPacket*> bufferedPacketQueue;
-
-public:
-	Peer()
-	{
-		// Create the local socket
-		pSocket = new keksnl::CBerkleySocket();
-
-		// Now connect our peer with the socket
-		pSocket->GetEventHandler().AddEvent(keksnl::SocketEvents::RECEIVE, keksnl::mkEventN(&Peer::OnReceive, this), this);
-
-		// Not we want to handle the received packets in our reliabilityLayer
-		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
-													keksnl::mkEventN(&Peer::HandlePacket, this), this);
-
-		reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::NEW_CONNECTION,
-															keksnl::mkEventN(&Peer::HandleNewConnection, this), this);
-
-		DEBUG_LOG("Local ReliabilityLayer {%p}", &reliabilityLayer);
-	}
-
-	~Peer()
-	{
-		pSocket->GetEventHandler().RemoveEventsByOwner(this);
-		reliabilityLayer.GetEventHandler().RemoveEventsByOwner(this);
-
-		for(auto &system : remoteSystems)
-		{
-			system->reliabilityLayer.GetEventHandler().RemoveEventsByOwner(this);
-		}
-
-	}
-
-	bool OnReceive(keksnl::InternalRecvPacket* pPacket)
-	{
-		// If its a known system distribute the packet to the systems reliability layer
-		for (auto &system : remoteSystems)
-		{
-			if (pPacket->remoteAddress == system->reliabilityLayer.GetRemoteAddress())
-			{
-				system->reliabilityLayer.OnReceive(pPacket);
-				return true;
-			}
-		}
-
-		reliabilityLayer.OnReceive(pPacket);
-
-		return true;
-	}
-
-	bool HandleDisconnect(keksnl::SocketAddress address, keksnl::DisconnectReason reason)
-	{
-		for (auto &system : remoteSystems)
-		{
-			if (address == system->reliabilityLayer.GetRemoteAddress())
-			{
-				remoteSystems.erase(std::find(remoteSystems.begin(), remoteSystems.end(), system));
-				remoteSystems.shrink_to_fit();
-
-				this->reliabilityLayer.RemoveRemote(address);
-
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	keksnl::ISocket * GetSocket()
-	{
-		return pSocket;
-	}
-
-	void Start(const char *szAddress, unsigned short usPort)
-	{
-		keksnl::SocketBindArguments bi;
-
-		bi.usPort = usPort;
-		bi.szHostAddress = szAddress;
-
-		pSocket->Bind(bi);
-		pSocket->StartReceiving();
-	}
-
-	void Connect(const char * szRemoteAddress, unsigned short usPort)
-	{
-		keksnl::CBitStream bitStream{MAX_MTU_SIZE};
-
-		keksnl::DatagramHeader dh;
-		dh.isACK = false;
-		dh.isNACK = false;
-		dh.isReliable = false;
-		dh.sequenceNumber = 0;
-
-		dh.Serialize(bitStream);
-
-		bitStream.Write(keksnl::PacketReliability::UNRELIABLE);
-		bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_REQUEST));
-		bitStream.Write(MessageID::CONNECTION_REQUEST);
-
-		keksnl::SocketAddress remoteAdd;
-
-		memset(&remoteAdd.address.addr4, 0, sizeof(sockaddr_in));
-		remoteAdd.address.addr4.sin_port = htons(usPort);
-
-		remoteAdd.address.addr4.sin_addr.s_addr = inet_addr(szRemoteAddress);
-		remoteAdd.address.addr4.sin_family = AF_INET;
-
-		if (GetSocket())
-			GetSocket()->Send(remoteAdd, bitStream.Data(), bitStream.Size());
-		else
-			DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
-
-		DEBUG_LOG("Send");
-	}
-
-	bool HandlePacket(keksnl::ReliablePacket &packet, keksnl::SocketAddress& remoteAddress)
-	{
-		//std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-		if (count == 100)
-			start = std::chrono::high_resolution_clock::now();
-
-		char * pData = packet.Data();
-
-		if ((MessageID)pData[0] == MessageID::CONNECTION_REQUEST)
-		{
-			DEBUG_LOG("Connection request");
-
-			keksnl::CBitStream bitStream{MAX_MTU_SIZE};
-
-			keksnl::DatagramHeader dh;
-			dh.isACK = false;
-			dh.isNACK = false;
-			dh.isReliable = false;
-			dh.sequenceNumber = 0;
-
-			dh.Serialize(bitStream);
-
-			bitStream.Write(keksnl::PacketReliability::UNRELIABLE);
-			bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_ACCEPTED));
-			bitStream.Write(MessageID::CONNECTION_ACCEPTED);
-
-			if (GetSocket())
-				GetSocket()->Send(remoteAddress, bitStream.Data(), bitStream.Size());
-			else
-				DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
-
-			DEBUG_LOG("Send");
-		}
-		else if ((MessageID)pData[0] == MessageID::CONNECTION_ACCEPTED)
-		{
-			DEBUG_LOG("Remote accepted our connection");
-
-			countPerSec++;
-			count++;
-			char keks[100] = {0};
-			//sprintf_s(keks, "Keks count %d", count++);
-			msg1 = "Keks count %d";
-			//std::chrono::milliseconds dura(2000);
-			//std::this_thread::sleep_for(dura);
-
-			for (auto system : remoteSystems)
-			{
-				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
-				{
-					// Send back
-					Send(*system, msg1.c_str(), msg1.size() + 1);
-					break;
-				}
-			}
-		}
-		else
-		{
-			countPerSec++;
-			count++;
-			char keks[100] = {0};
-			//sprintf_s(keks, "Keks count %d", count++);
-			msg1 = "Keks count %d";
-			//std::chrono::milliseconds dura(2000);
-			//std::this_thread::sleep_for(dura);
-
-			for (auto system : remoteSystems)
-			{
-				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
-				{
-					// Send back
-					Send(*system, msg1.c_str(), msg1.size() + 1);
-					break;
-				}
-			}
-		}
-
-		return false;
-	};
-
-	bool HandleNewConnection(keksnl::InternalRecvPacket * pPacket)
-	{
-		System *system = new System;
-		system->reliabilityLayer.SetRemoteAddress(pPacket->remoteAddress);
-		system->reliabilityLayer.SetSocket(this->pSocket);
-
-		// we want all handle events in our peer
-		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::HANDLE_PACKET,
-															keksnl::mkEventN(&Peer::HandlePacket, this), this);
-
-		system->reliabilityLayer.GetEventHandler().AddEvent(keksnl::ReliabilityEvents::CONNECTION_LOST_TIMEOUT,
-													keksnl::mkEventN(&Peer::HandleDisconnect, this), this);
-		remoteSystems.push_back(system);
-
-		DEBUG_LOG("New connection {%p} at %p", &system->reliabilityLayer, this);
-		return true;
-	};
-
-	void Send(System &peer, const char * data, size_t len)
-	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), keksnl::PacketPriority::IMMEDIATE, keksnl::PacketReliability::RELIABLE);
-		//GetRelLayer()->GetSocket()->Send(peer.GetRelLayer()->GetSocket()->GetSocketAddress(), data, len);
-	}
-
-	void Process()
-	{
-		reliabilityLayer.Process();
-
-		for (auto &peer : remoteSystems)
-			peer->reliabilityLayer.Process();
-	}
-};
 
 double packetsPerSec = 0;
 
@@ -310,7 +58,7 @@ int main(int argc, char** argv)
 			// Start the client
 			const char *szAddress = argv[2];
 			unsigned short usPort = atoi(argv[3]);
-			Peer * pPeer = new Peer();
+			keksnl::Peer * pPeer = new keksnl::Peer();
 			pPeer->Start(0, usPort + 1);
 			pPeer->Connect(szAddress, usPort);
 
@@ -325,7 +73,7 @@ int main(int argc, char** argv)
 
 			// Get the listening port
 			unsigned short usPort = atoi(argv[2]);
-			Peer * pPeer = new Peer();
+			keksnl::Peer * pPeer = new keksnl::Peer();
 
 			// Start the server
 			pPeer->Start(0, usPort);
@@ -496,9 +244,9 @@ int main(int argc, char** argv)
 
 	DEBUG_LOG("Startup [performance]");
 
-	peer1 = new Peer();
-	peer2 = new Peer();
-	peer3 = new Peer();
+	peer1 = new keksnl::Peer();
+	peer2 = new keksnl::Peer();
+	peer3 = new keksnl::Peer();
 
 	peer1->Start(0, 9999);
 	peer2->Start(0, 10000);
