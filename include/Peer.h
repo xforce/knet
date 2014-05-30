@@ -50,7 +50,7 @@ namespace keksnl
 		struct System
 		{
 			keksnl::CReliabilityLayer reliabilityLayer;
-
+			bool isConnected;
 		};
 
 		keksnl::CReliabilityLayer reliabilityLayer;
@@ -80,16 +80,31 @@ namespace keksnl
 			pSocket->StartReceiving();
 		}
 
-		void Send(System &peer, const char * data, size_t len);
+		void Send(System &peer, const char * data, size_t len, bool im = false);
 
 		void Connect(const char * szRemoteAddress, unsigned short usPort);
 
 		void Process()
 		{
+			for (auto &system : remoteSystems)
+			{
+				if (system->isConnected)
+				{
+
+					// Send back
+					std::string d("Send back");
+					Send(*system, d.c_str(), d.size(), false);
+					Send(*system, d.c_str(), d.size(), false);
+					Send(*system, d.c_str(), d.size(), false);
+				}
+			}
+
 			reliabilityLayer.Process();
 
 			for (auto &peer : remoteSystems)
 				peer->reliabilityLayer.Process();
+
+			
 		}
 
 	private:

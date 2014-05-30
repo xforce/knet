@@ -48,6 +48,10 @@ class PrintLogHander : public ILogHandler
 
 int main(int argc, char** argv)
 {
+#if WIN32
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
 	GetLogger("KeksNL")->AddHandler(new PrintLogHander);
 	DEBUG_LOG("%d", sizeof(keksnl::OrderedInfo));
 
@@ -304,6 +308,8 @@ int main(int argc, char** argv)
 		peer1->Process();
 		peer2->Process();
 		peer3->Process();
+
+		//std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 	}
 

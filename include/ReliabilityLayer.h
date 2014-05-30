@@ -155,6 +155,8 @@ namespace keksnl
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
 		PacketPriority priority;
 		OrderedInfo orderedInfo;
+		SequenceNumberType sequenceNumber = 0;
+		SocketAddress socketAddress;
 
 		ReliablePacket()
 		{
@@ -187,7 +189,8 @@ namespace keksnl
 			this->reliability = other.reliability;
 			this->dataLength = other.dataLength;
 			this->orderedInfo = other.orderedInfo;
-
+			this->sequenceNumber = other.sequenceNumber;
+			
 			other.pData = nullptr;
 		}
 
@@ -235,6 +238,11 @@ namespace keksnl
 #endif
 
 			bitStream.Read(pData, dataLength);
+
+			if (!pData)
+			{
+				DEBUG_LOG("Invalid Data");
+			}
 		}
 
 		size_t GetSizeToSend()
@@ -250,9 +258,23 @@ namespace keksnl
 			this->selfAllocated = false;
 			this->reliability = packet.reliability;
 			this->dataLength = packet.dataLength;
-			this->orderedInfo = packet.orderedInfo;
-			
+			this->orderedInfo = packet.orderedInfo; 
+			this->sequenceNumber = packet.sequenceNumber;
 
+			return *this;
+		}
+
+		ReliablePacket & operator=(ReliablePacket &&other)
+		{
+			this->pData = other.pData;
+			this->selfAllocated = other.selfAllocated;
+			this->priority = other.priority;
+			this->reliability = other.reliability;
+			this->dataLength = other.dataLength;
+			this->orderedInfo = other.orderedInfo;
+			this->sequenceNumber = other.sequenceNumber;
+
+			other.pData = nullptr;
 			return *this;
 		}
 	};
@@ -270,6 +292,7 @@ namespace keksnl
 
 		void Serialize(CBitStream & bitStream)
 		{
+
 			header.Serialize(bitStream);
 
 			if (!header.isACK && !header.isNACK)
@@ -354,7 +377,7 @@ namespace keksnl
 
 		std::vector<ReliablePacket> sendBuffer;
 
-		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, DatagramPacket*>> resendBuffer;
+		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, std::unique_ptr<DatagramPacket>>> resendBuffer;
 
 #if WIN32
 		std::array<std::vector<ReliablePacket>, 255> orderedPacketBuffer;

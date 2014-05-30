@@ -140,8 +140,9 @@ namespace keksnl
 			pDatagramPacket->Serialize(bitStream);
 
 			if (pDatagramPacket->header.isReliable)
-				resendBuffer.push_back({std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()), pDatagramPacket});
-
+			{
+				resendBuffer.push_back({std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()), std::unique_ptr<DatagramPacket>(pDatagramPacket)});
+			}
 			if (m_pSocket)
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
@@ -200,6 +201,200 @@ namespace keksnl
 			pPacket = nullptr;
 		}
 
+		{ /* Ordered packet process */
+			// TODO: fix this code, it is not really reliable/safe
+			/* Notes directly from my brain: rather than just sort by index which could be more than one times in the list we should also use the datagram sequence number
+			which makes it much better
+			then we should look in a packet if there is max ordered index and 0 we have to process max before 0 which is currently not
+			the case
+			we could also use time stamp which is slower and i think it would be same as using the datagram sequence
+			number
+			think about how a proper way to make it fast, safe and reliable
+			*/
+
+			int i = 0;
+			uint16 lastIndex = 0;
+			uint8 channel = 0;
+
+			for (auto & orderedPackets : orderedPacketBuffer)
+			{
+				if (orderedPackets.size())
+				{
+					// This might work if the sort does not fuck up the order of the packets in a seqeuenceNumber which is think is not guranteed so we need a different approach
+					std::sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
+					{
+						if (packet.sequenceNumber < packet_.sequenceNumber)
+							return true;
+						else
+							return false;
+					});
+
+					int nextIndex;
+
+					std::sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
+					{
+						// Packet
+						// 0 1 2 3 65535 65534
+						// s 10 10 10 10
+						// Should be
+						// 65534 65535 0 1 2 3
+
+						if (packet.orderedInfo.index < packet_.orderedInfo.index)
+						{
+							// If the packet was send in a later sequence packet then it must be older
+
+							if (packet_.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
+							{
+								return false;
+							}
+							else
+							{
+								if (packet.sequenceNumber == packet_.sequenceNumber)
+								{
+									if (packet.orderedInfo.index + 1 == packet_.orderedInfo.index)
+										return true;
+									else
+									{
+										if (packet.orderedInfo.index == packet_.orderedInfo.index + 1)
+											return false;
+										else
+											return true;
+									}
+								}
+								else
+									return true;
+							}
+						}
+						else
+						{
+							if (packet.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
+							{
+								return true;
+							}
+							else
+							{
+								if (packet.sequenceNumber == packet_.sequenceNumber)
+								{
+									if (packet.orderedInfo.index + 1 == packet_.orderedInfo.index)
+										return true;
+									else
+										return false;
+								}
+								else
+									return false;
+							}
+						}
+
+#if 0
+						if (packet.orderedInfo.index < packet_.orderedInfo.index && packet.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max() && packet_.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
+						{
+							return true;
+						}
+						else if (packet.orderedInfo.index > packet_.orderedInfo.index && packet.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max() && packet_.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
+						{
+							// Left is greater and not max
+							return false;
+						}
+						else if (packet.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
+						{
+							if (packet.sequenceNumber < packet_.sequenceNumber)
+								return true;
+							else
+								return false;
+						}
+						else if (packet_.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
+						{
+							if (packet.sequenceNumber < packet_.sequenceNumber)
+								return false;
+							else
+								return true;
+						}
+						else
+						{
+							return true;
+						}
+#endif
+					});
+
+					bool bGreat = false;
+
+					if (orderedPackets.size() > 500)
+						bGreat = true;
+
+					if (orderedPackets.size())
+					{
+						lastIndex = lastOrderedIndex[orderedPackets.begin()->orderedInfo.channel];
+
+						for (auto &packet : orderedPackets)
+						{
+							if (packet.orderedInfo.index == lastIndex + 1)
+							{
+								/*if (bGreat)
+								__debugbreak();*/
+								DEBUG_LOG("Contains %d", lastIndex);
+								break;
+							}
+						}
+
+						for (auto &packet : orderedPackets)
+						{
+							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
+							if (lastIndex > packet.orderedInfo.index)
+							{
+								lastIndex = packet.orderedInfo.index;
+
+								//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
+								if (packet.orderedInfo.index == 0)
+									DEBUG_LOG("Process ordered 0 on %p", this);
+
+								if (eventHandler)
+								{
+									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, packet.socketAddress);
+								}
+
+								orderedPackets.erase(orderedPackets.begin());
+
+								break;
+
+							}
+							else if (packet.orderedInfo.index > 0 && packet.orderedInfo.index != (lastIndex + 1))
+							{
+								break;
+							}
+							else
+							{
+
+								//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
+								if (packet.orderedInfo.index == 0)
+									DEBUG_LOG("Process ordered 0 on %p", this);
+
+								lastIndex = packet.orderedInfo.index;
+								if (eventHandler)
+								{
+									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, packet.socketAddress);
+								}
+							}
+
+							++i;
+							channel = packet.orderedInfo.channel;
+						}
+					}
+
+					lastOrderedIndex[channel] = lastIndex;
+
+					if (i > 0)
+						orderedPackets.erase(orderedPackets.begin(), orderedPackets.begin() + i);
+
+
+
+					i = 0;
+					lastIndex = 0;
+				}
+			}
+		}
+
 		CBitStream bitStream{MAX_MTU_SIZE};
 
 #pragma region Resend Stuff
@@ -245,7 +440,7 @@ namespace keksnl
 			/* Setup Reliable datagram packet */
 			pReliableDatagramPacket->header.isACK = false;
 			pReliableDatagramPacket->header.isNACK = false;
-			pReliableDatagramPacket->header.isReliable = false;
+			pReliableDatagramPacket->header.isReliable = true;
 			pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
 
 			DatagramPacket * pCurrentPacket = pReliableDatagramPacket;
@@ -279,13 +474,13 @@ namespace keksnl
 					if (pCurrentPacket == pReliableDatagramPacket)
 					{
 						// Add the packet to the resend buffer
-						resendBuffer.push_back({curTime, pCurrentPacket});
+						resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pCurrentPacket)});
 
 						pReliableDatagramPacket = new DatagramPacket();
 
 						pReliableDatagramPacket->header.isACK = false;
 						pReliableDatagramPacket->header.isNACK = false;
-						pReliableDatagramPacket->header.isReliable = false;
+						pReliableDatagramPacket->header.isReliable = true;
 						pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
 					}
 					else
@@ -302,9 +497,6 @@ namespace keksnl
 				}
 			}
 
-			if (sendBuffer.size())
-				;// DEBUG_LOG("Sending %d bytes", bitStream.Size());
-
 			if (pUnrealiableDatagramPacket->packets.size())
 			{
 				bitStream.Reset();
@@ -314,8 +506,12 @@ namespace keksnl
 				// Unrealiable packets are not needed anymore
 				delete pUnrealiableDatagramPacket;
 			}
+			else
+			{
+				delete pUnrealiableDatagramPacket;
+			}
 
-			if (pReliableDatagramPacket)
+			if (pReliableDatagramPacket->packets.size())
 			{
 				bitStream.Reset();
 
@@ -323,7 +519,11 @@ namespace keksnl
 
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
-				resendBuffer.push_back({curTime, pReliableDatagramPacket});
+				resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pReliableDatagramPacket)});
+			}
+			else
+			{
+				delete pReliableDatagramPacket;
 			}
 #pragma endregion
 
@@ -403,8 +603,6 @@ namespace keksnl
 						if (isInAckRange(ranges, sequenceNumber))
 						{
 
-							delete resendBuffer[i].second;
-							resendBuffer[i].second = nullptr;
 							resendBuffer.erase(resendBuffer.begin() + i);
 							//DEBUG_LOG("Remove %d from resend list", i);
 						}
@@ -452,6 +650,8 @@ namespace keksnl
 
 						if(packet.reliability == PacketReliability::RELIABLE_ORDERED)
 						{
+							packet.sequenceNumber = dPacket.header.sequenceNumber;
+							packet.socketAddress = pPacket->remoteAddress;
 							orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(packet));
 						}
 						else
@@ -459,89 +659,6 @@ namespace keksnl
 							if (eventHandler)
 							{
 								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
-							}
-						}
-					}
-
-					{ /* Ordered packet process */
-						// TODO: fix this code, it is not really reliable/safe
-						/* Notes directly from my brain: rather than just sort by index which could be more than one times in the list we should also use the datagram sequence number
-							which makes it much better
-							then we should look in a packet if there is max ordered index and 0 we have to process max before 0 which is currently not
-							the case
-							we could also use time stamp which is slower and i think it would be same as using the datagram sequence
-							number
-							think about how a proper way to make it fast, safe and reliable
-						*/
-
-						int i = 0;
-						uint16 lastIndex = 0;
-						uint8 channel = 0;
-
-						for (auto & orderedPackets : orderedPacketBuffer)
-						{
-							if (orderedPackets.size())
-							{
-								std::sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
-								{
-									return (packet.orderedInfo.index < packet.orderedInfo.index);
-								});
-
-								if (orderedPackets.size())
-								{
-									lastIndex = lastOrderedIndex[orderedPackets.begin()->orderedInfo.channel];
-
-									for (auto &packet : orderedPackets)
-									{
-										if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
-											firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-
-										if (lastIndex > packet.orderedInfo.index)
-										{
-											lastIndex = packet.orderedInfo.index;
-
-											if (packet.orderedInfo.index == 0)
-												DEBUG_LOG("Process ordered 0 on %p", this);
-
-											if (eventHandler)
-											{
-												eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
-											}
-
-											orderedPackets.erase(orderedPackets.begin());
-
-											break;
-
-										}
-
-										if (packet.orderedInfo.index > 0 && packet.orderedInfo.index != (lastIndex + 1))
-										{
-											break;
-										}
-										else
-										{
-
-											if (packet.orderedInfo.index == 0)
-												DEBUG_LOG("Process ordered 0 on %p", this);
-
-											lastIndex = packet.orderedInfo.index;
-											if (eventHandler)
-											{
-												eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
-											}
-										}
-
-										++i;
-										channel = packet.orderedInfo.channel;
-									}
-								}
-
-								lastOrderedIndex[channel] = lastIndex;
-
-								if (i > 0)
-									orderedPackets.erase(orderedPackets.begin(), orderedPackets.begin() + i);
-								i = 0;
-								lastIndex = 0;
 							}
 						}
 					}
@@ -619,6 +736,8 @@ namespace keksnl
 		// This seems to cause a bug sometimes
 		// But only a this position, we do it below and everything works fine
 		// I still dont know why
+		// I have tested this on Windows with Visual Studio 2013 Visual C++ Compiler Nov 2013 (CTP) and there it seems to work fine,
+		// so it seems only broken on Linux/GCC
 		//acknowledgements.shrink_to_fit();
 
 		bool bnil = false;

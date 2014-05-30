@@ -103,9 +103,9 @@ namespace keksnl
 		DEBUG_LOG("Send");
 	}
 
-	void Peer::Send(System &peer, const char * data, size_t len)
+	void Peer::Send(System &peer, const char * data, size_t len, bool im)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), PacketPriority::IMMEDIATE, PacketReliability::RELIABLE_ORDERED);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::IMMEDIATE : PacketPriority::HIGH), PacketReliability::RELIABLE_ORDERED);
 	}
 
 
@@ -154,7 +154,7 @@ namespace keksnl
 		static int count = 0;
 		static std::string msg1 = "";
 
-		char * pData = packet.Data();
+		auto pData = packet.Data();
 
 		if ((MessageID)pData[0] == MessageID::CONNECTION_REQUEST)
 		{
@@ -179,11 +179,29 @@ namespace keksnl
 			else
 				DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
 
+			/*for (auto system : remoteSystems)
+			{
+				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
+				{
+					system->isConnected = true;
+				}
+			}*/
+
 			DEBUG_LOG("Send");
 		}
 		else if ((MessageID)pData[0] == MessageID::CONNECTION_ACCEPTED)
 		{
 			DEBUG_LOG("Remote accepted our connection");
+
+
+			for (auto system : remoteSystems)
+			{
+				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
+				{
+					system->isConnected = true;
+					break;
+				}
+			}
 
 			//countPerSec++;
 			count++;
@@ -200,7 +218,8 @@ namespace keksnl
 DEBUG_LOG("Send back");
 
 					// Send back
-					Send(*system, msg1.c_str(), msg1.size() + 1);
+					//Send(*system, msg1.c_str(), msg1.size() + 1, false);
+
 					break;
 				}
 			}
@@ -220,7 +239,8 @@ DEBUG_LOG("Send back");
 				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
 				{
 					// Send back
-					Send(*system, msg1.c_str(), msg1.size() + 1);
+					//Send(*system, msg1.c_str(), msg1.size() + 1);
+
 					break;
 				}
 			}
