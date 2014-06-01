@@ -201,6 +201,8 @@ namespace keksnl
 			pPacket = nullptr;
 		}
 
+#pragma region Ordered Packet stuff
+
 		{ /* Ordered packet process */
 			// TODO: fix this code, it is not really reliable/safe
 			/* Notes directly from my brain: rather than just sort by index which could be more than one times in the list we should also use the datagram sequence number
@@ -220,6 +222,37 @@ namespace keksnl
 			{
 				if (orderedPackets.size())
 				{
+
+					// Crapt sort, it works but it will be later rewritten 
+
+					// Split the packets in sequence number chunks then reappend them to the root vector
+					std::map<int, std::vector<ReliablePacket>> tmpPackets;
+
+					for (auto &packet : orderedPackets)
+					{
+						if(tmpPackets.find(packet.sequenceNumber) != tmpPackets.end())
+						{
+							tmpPackets.at(packet.sequenceNumber).push_back(std::move(packet));
+						}
+						else
+						{
+							std::vector<ReliablePacket> tmp;
+							tmp.push_back(std::move(packet));
+							std::pair<int, std::vector<ReliablePacket>> k(packet.sequenceNumber, std::move(tmp));
+							tmpPackets.insert(std::move(k));
+						}
+					}
+
+					orderedPackets.clear();
+
+					for(auto &keks : tmpPackets)
+					{
+						orderedPackets.insert(orderedPackets.end(), std::make_move_iterator(keks.second.begin()), std::make_move_iterator(keks.second.end()));
+					}
+
+
+					/*
+
 					// This might work if the sort does not fuck up the order of the packets in a seqeuenceNumber which is think is not guranteed so we need a different approach
 					std::sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
 					{
@@ -229,92 +262,7 @@ namespace keksnl
 							return false;
 					});
 
-					int nextIndex;
-
-					std::sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
-					{
-						// Packet
-						// 0 1 2 3 65535 65534
-						// s 10 10 10 10
-						// Should be
-						// 65534 65535 0 1 2 3
-
-						if (packet.orderedInfo.index < packet_.orderedInfo.index)
-						{
-							// If the packet was send in a later sequence packet then it must be older
-
-							if (packet_.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
-							{
-								return false;
-							}
-							else
-							{
-								if (packet.sequenceNumber == packet_.sequenceNumber)
-								{
-									if (packet.orderedInfo.index + 1 == packet_.orderedInfo.index)
-										return true;
-									else
-									{
-										if (packet.orderedInfo.index == packet_.orderedInfo.index + 1)
-											return false;
-										else
-											return true;
-									}
-								}
-								else
-									return true;
-							}
-						}
-						else
-						{
-							if (packet.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
-							{
-								return true;
-							}
-							else
-							{
-								if (packet.sequenceNumber == packet_.sequenceNumber)
-								{
-									if (packet.orderedInfo.index + 1 == packet_.orderedInfo.index)
-										return true;
-									else
-										return false;
-								}
-								else
-									return false;
-							}
-						}
-
-#if 0
-						if (packet.orderedInfo.index < packet_.orderedInfo.index && packet.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max() && packet_.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
-						{
-							return true;
-						}
-						else if (packet.orderedInfo.index > packet_.orderedInfo.index && packet.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max() && packet_.orderedInfo.index != std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
-						{
-							// Left is greater and not max
-							return false;
-						}
-						else if (packet.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
-						{
-							if (packet.sequenceNumber < packet_.sequenceNumber)
-								return true;
-							else
-								return false;
-						}
-						else if (packet_.orderedInfo.index == std::numeric_limits<decltype(packet.orderedInfo.index)>::max())
-						{
-							if (packet.sequenceNumber < packet_.sequenceNumber)
-								return false;
-							else
-								return true;
-						}
-						else
-						{
-							return true;
-						}
-#endif
-					});
+					*/
 
 					bool bGreat = false;
 
@@ -394,6 +342,8 @@ namespace keksnl
 				}
 			}
 		}
+
+#pragma endregion
 
 		CBitStream bitStream{MAX_MTU_SIZE};
 
@@ -836,7 +786,7 @@ namespace keksnl
 
 		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo + 1);
 		acknowledgements.shrink_to_fit();
-		
+
 		keksnl::CBitStream out{bitStream.Size() + 20 /* guessed header size */};
 
 		DatagramHeader dh;
