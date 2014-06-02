@@ -320,7 +320,10 @@ namespace keksnl
 		}
 	};
 
-
+	//! Reliability layer. 
+	/*!
+	  Internal class
+	*/
 	class CReliabilityLayer
 	{
 	public:
