@@ -223,9 +223,10 @@ namespace keksnl
 				if (orderedPackets.size())
 				{
 
-					// Crapt sort, it works but it will be later rewritten 
+					// Crap sort, it works but it will be later rewritten 
 
 					// Split the packets in sequence number chunks then reappend them to the root vector
+#if 0
 					std::map<int, std::vector<ReliablePacket>> tmpPackets;
 
 					for (auto &packet : orderedPackets)
@@ -238,8 +239,7 @@ namespace keksnl
 						{
 							std::vector<ReliablePacket> tmp;
 							tmp.push_back(std::move(packet));
-							std::pair<int, std::vector<ReliablePacket>> k(packet.sequenceNumber, std::move(tmp));
-							tmpPackets.insert(std::move(k));
+							tmpPackets.insert(std::make_pair(packet.sequenceNumber, std::move(tmp)));
 						}
 					}
 
@@ -249,25 +249,15 @@ namespace keksnl
 					{
 						orderedPackets.insert(orderedPackets.end(), std::make_move_iterator(keks.second.begin()), std::make_move_iterator(keks.second.end()));
 					}
+#endif
 
-
-					/*
+					DEBUG_LOG("Sort");
 
 					// This might work if the sort does not fuck up the order of the packets in a seqeuenceNumber which is think is not guranteed so we need a different approach
-					std::sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
+					std::stable_sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
 					{
-						if (packet.sequenceNumber < packet_.sequenceNumber)
-							return true;
-						else
-							return false;
+						return (packet.sequenceNumber < packet_.sequenceNumber);
 					});
-
-					*/
-
-					bool bGreat = false;
-
-					if (orderedPackets.size() > 500)
-						bGreat = true;
 
 					if (orderedPackets.size())
 					{
@@ -275,17 +265,7 @@ namespace keksnl
 
 						for (auto &packet : orderedPackets)
 						{
-							if (packet.orderedInfo.index == lastIndex + 1)
-							{
-								/*if (bGreat)
-								__debugbreak();*/
-								DEBUG_LOG("Contains %d", lastIndex);
-								break;
-							}
-						}
 
-						for (auto &packet : orderedPackets)
-						{
 							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
 								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
@@ -314,7 +294,8 @@ namespace keksnl
 							else
 							{
 
-								//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
+								DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
+
 								if (packet.orderedInfo.index == 0)
 									DEBUG_LOG("Process ordered 0 on %p", this);
 
@@ -334,8 +315,6 @@ namespace keksnl
 
 					if (i > 0)
 						orderedPackets.erase(orderedPackets.begin(), orderedPackets.begin() + i);
-
-
 
 					i = 0;
 					lastIndex = 0;
@@ -602,7 +581,9 @@ namespace keksnl
 						{
 							packet.sequenceNumber = dPacket.header.sequenceNumber;
 							packet.socketAddress = pPacket->remoteAddress;
+
 							orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(packet));
+							
 						}
 						else
 						{

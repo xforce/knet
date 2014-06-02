@@ -163,6 +163,8 @@ namespace keksnl
 
 		}
 
+		ReliablePacket(const ReliablePacket &other) = delete;
+
 		char * Data()
 		{
 			return pData;
@@ -173,7 +175,7 @@ namespace keksnl
 			return dataLength;
 		}
 
-		ReliablePacket(char * data, size_t length)
+		ReliablePacket(char * data, ::size_t length)
 		{
 			pData = (char*)(malloc(length));
 			memcpy(pData, data, length);
@@ -198,6 +200,8 @@ namespace keksnl
 		{
 			if (pData && selfAllocated)
 				free(pData);
+
+			pData = nullptr;
 		}
 
 		void Serialize(CBitStream &bitStream)
@@ -231,7 +235,6 @@ namespace keksnl
 
 			selfAllocated = true;
 
-
 #if WIN32
 			if (dataLength > bitStream.Size())
 				__debugbreak();
@@ -250,19 +253,7 @@ namespace keksnl
 			return sizeof(dataLength)+dataLength;
 		}
 
-		ReliablePacket & operator=(const ReliablePacket &packet)
-		{
-			this->dataLength = packet.dataLength;
-			this->pData = packet.pData;
-			this->priority = packet.priority;
-			this->selfAllocated = false;
-			this->reliability = packet.reliability;
-			this->dataLength = packet.dataLength;
-			this->orderedInfo = packet.orderedInfo; 
-			this->sequenceNumber = packet.sequenceNumber;
-
-			return *this;
-		}
+		ReliablePacket & operator=(const ReliablePacket &other) = delete;
 
 		ReliablePacket & operator=(ReliablePacket &&other)
 		{
@@ -287,7 +278,7 @@ namespace keksnl
 
 		DatagramPacket()
 		{
-			packets.reserve(3);
+
 		}
 
 		void Serialize(CBitStream & bitStream)
@@ -311,6 +302,7 @@ namespace keksnl
 				{
 					ReliablePacket packet;
 					packet.Deserialize(bitStream);
+
 					packets.push_back(std::move(packet));
 				}
 			}

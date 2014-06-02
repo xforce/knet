@@ -56,6 +56,7 @@
 #endif
 
 #if WIN32
+#if CRT_ALLOC
 #define CRTDBG_MAP_ALLOC
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -67,6 +68,7 @@
 #define new DBG_NEW
 #endif
 #endif  // _DEBUG
+#endif
 #endif
 
 #if WIN32
