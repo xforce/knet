@@ -548,13 +548,14 @@ namespace keksnl
 				{
 					// Now process the packet
 
-#ifdef DEBUG
 					for (auto i : acknowledgements)
 					{
-						if (dh.sequenceNumber == i)
+						if (dPacket.header.sequenceNumber == i)
+						{
 							DEBUG_LOG("Already in ACK list %d", i);
+							break;
+						}
 					}
-#endif
 
 					//DEBUG_LOG("Got packet %d", dh.sequenceNumber);
 
@@ -562,12 +563,6 @@ namespace keksnl
 						acknowledgements.push_back(dPacket.header.sequenceNumber);
 					else
 						DEBUG_LOG("Got Unrealiable");
-
-					if (dPacket.header.isReliable)
-					{
-						if (dPacket.header.sequenceNumber == 0)
-							DEBUG_LOG("Got 0 on %p", this);
-					}
 
 					for (auto &packet : dPacket.packets)
 					{
@@ -617,10 +612,6 @@ namespace keksnl
 		}
 
 		RemoteSystem system;
-		// This is not correct
-		/* We have to create a new remote socket
-			But it its ok for testing purposes
-		*/
 
 		system.pSocket = pPacket->pSocket;
 		system.address = pPacket->remoteAddress;
@@ -707,7 +698,7 @@ namespace keksnl
 		// Now write the range stuff to the bitstream
 		for (int i = 0; i < acknowledgements.size(); ++i)
 		{
-			if (acknowledgements[i] == (acknowledgements[i + 1] - 1))
+			if ((i+1 < acknowledgements.size()) && acknowledgements[i] == (acknowledgements[i + 1] - 1))
 			{ /* (Next-1) equals current, so its a range */
 
 				if (min == -1)
@@ -722,11 +713,7 @@ namespace keksnl
 				min = acknowledgements[i];
 				max = acknowledgements[i];
 
-				if(min == 0)
-					DEBUG_LOG("Send ack for 0 on {%p}", this);
-
-				if(max == 101)
-					DEBUG_LOG("Send ack for 101 on {%p}", this);
+				DEBUG_LOG("Send acks for %d %d", min, max);
 
 				bitStream.Write<SequenceNumberType>(min);
 				bitStream.Write<SequenceNumberType>(max);
@@ -742,11 +729,7 @@ namespace keksnl
 				// First diff at next so write max to current and write info to bitStream
 				max = acknowledgements[i];
 
-				if(min == 0)
-					DEBUG_LOG("Send ack for 0 on {%p}", this);
-
-				if(max == 101)
-					DEBUG_LOG("Send ack for 101 on {%p}", this);
+				DEBUG_LOG("Send acks for %d %d", min, max);
 
 				bitStream.Write<SequenceNumberType>(min);
 				bitStream.Write<SequenceNumberType>(max);
@@ -758,21 +741,21 @@ namespace keksnl
 				min = -1;
 			}
 
-			if (bitStream.Size() >= 1000)
+			if (bitStream.Size() >= 1300)
 			{
 				rerun = true;
 				break;
 			}
 		}
 
-		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo + 1);
-		acknowledgements.shrink_to_fit();
-
-		keksnl::CBitStream out{bitStream.Size() + 20 /* guessed header size */};
+		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo);
+		
 
 		DatagramHeader dh;
 		dh.isACK = true;
 		dh.isNACK = false;
+
+		keksnl::CBitStream out{bitStream.Size() + dh.GetSizeToSend()};
 
 		dh.Serialize(out);
 
@@ -786,5 +769,7 @@ namespace keksnl
 
 		if (rerun)
 			SendACKs();
+		else
+			acknowledgements.shrink_to_fit();
 	}
 };

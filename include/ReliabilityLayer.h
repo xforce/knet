@@ -185,6 +185,11 @@ namespace keksnl
 
 		ReliablePacket(ReliablePacket &&other)
 		{
+#if WIN32 /* Visual Studio stable_sort calls self move assignment operator */
+			if (this == &other)
+				return;
+#endif
+
 			this->pData = other.pData;
 			this->selfAllocated = other.selfAllocated;
 			this->priority = other.priority;
@@ -257,6 +262,12 @@ namespace keksnl
 
 		ReliablePacket & operator=(ReliablePacket &&other)
 		{
+
+#if WIN32 /* Visual Studio stable_sort calls self move assignment operator */
+			if (this == &other)
+				return *this;
+#endif
+
 			this->pData = other.pData;
 			this->selfAllocated = other.selfAllocated;
 			this->priority = other.priority;
