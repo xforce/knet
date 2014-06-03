@@ -251,7 +251,7 @@ namespace keksnl
 					}
 #endif
 
-					DEBUG_LOG("Sort");
+					//DEBUG_LOG("Sort");
 
 					// This might work if the sort does not fuck up the order of the packets in a seqeuenceNumber which is think is not guranteed so we need a different approach
 					std::stable_sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
@@ -294,7 +294,7 @@ namespace keksnl
 							else
 							{
 
-								DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
+								//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
 
 								if (packet.orderedInfo.index == 0)
 									DEBUG_LOG("Process ordered 0 on %p", this);
