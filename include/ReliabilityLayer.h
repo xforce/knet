@@ -61,7 +61,7 @@ namespace keksnl
 		IMMEDIATE = 0,
 		HIGH,
 		MEDIUM,
-		LOW
+		LOW,
 	};
 
 	enum class PacketReliability : uint8
@@ -71,7 +71,7 @@ namespace keksnl
 		RELIABLE,
 		RELIABLE_ORDERED,
 
-		MAX
+		MAX,
 	};
 
 	class CFlowControlHelper
@@ -239,11 +239,6 @@ namespace keksnl
 			pData = (char*)(malloc(dataLength));
 
 			selfAllocated = true;
-
-#if WIN32
-			if (dataLength > bitStream.Size())
-				__debugbreak();
-#endif
 
 			bitStream.Read(pData, dataLength);
 
@@ -417,7 +412,8 @@ namespace keksnl
 
 		InternalRecvPacket* PopBufferedPacket();
 
-		decltype(eventHandler) &GetEventHandler()
+		
+		inline decltype(eventHandler) &GetEventHandler()
 		{
 			return eventHandler;
 		}
@@ -427,13 +423,38 @@ namespace keksnl
 
 		/* Getters/Setters */
 
-
+		
+		//! Get the channel used to order sent packets
+		/*!
+		\return The current channel on which the remote reliability layer will order incoming ordered packets
+		Packets sent before may used a different channel
+		*/
 		uint8 GetOrderingChannel();
+
+		//! Sets the channel used to order sent packets
+		/*!
+		\param[in] ucChannel The channel on which the next ordered packets will be ordered on the remote reliability layer.
+		*/
 		void SetOrderingChannel(uint8 ucChannel);
 
+
+		//! Gets the socket used to send packets
+		/*!
+		\return Socket used to send packets
+		*/
 		ISocket * GetSocket();
+
+		//! Sets the socket used to send packets
+		/*!
+		\param[in] pSocket Socket used to send packets
+		*/
 		void SetSocket(ISocket * pSocket);
 
+		
+		//! Gets the remote Socket address
+		/*!
+		\return The remote address is the connection endpoint to which the packets will be send
+		*/
 		const SocketAddress & GetRemoteAddress();
 
 		//! Sets the remote Socket address which is the connection endpoint

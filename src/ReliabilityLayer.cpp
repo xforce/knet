@@ -223,34 +223,6 @@ namespace keksnl
 				if (orderedPackets.size())
 				{
 
-					// Crap sort, it works but it will be later rewritten 
-
-					// Split the packets in sequence number chunks then reappend them to the root vector
-#if 0
-					std::map<int, std::vector<ReliablePacket>> tmpPackets;
-
-					for (auto &packet : orderedPackets)
-					{
-						if(tmpPackets.find(packet.sequenceNumber) != tmpPackets.end())
-						{
-							tmpPackets.at(packet.sequenceNumber).push_back(std::move(packet));
-						}
-						else
-						{
-							std::vector<ReliablePacket> tmp;
-							tmp.push_back(std::move(packet));
-							tmpPackets.insert(std::make_pair(packet.sequenceNumber, std::move(tmp)));
-						}
-					}
-
-					orderedPackets.clear();
-
-					for(auto &keks : tmpPackets)
-					{
-						orderedPackets.insert(orderedPackets.end(), std::make_move_iterator(keks.second.begin()), std::make_move_iterator(keks.second.end()));
-					}
-#endif
-
 					//DEBUG_LOG("Sort");
 
 					// This might work if the sort does not fuck up the order of the packets in a seqeuenceNumber which is think is not guranteed so we need a different approach
@@ -351,11 +323,15 @@ namespace keksnl
 
 #pragma region Send Stuff
 
+		// TODO: split packets
+
 		// This fixes high memory consumption
 		sendBuffer.shrink_to_fit();
 		bitStream.Reset();
 		if (sendBuffer.size())
 		{
+			// Is it easy to use smart pointers in a good way here?
+
 			/* TODO: kinda hacky, make it better :D */
 
 			DatagramPacket* pReliableDatagramPacket = new DatagramPacket();
@@ -634,7 +610,6 @@ namespace keksnl
 		if (m_pSocket == pSocket)
 			return;
 
-		// TODO: reset reliability layer
 		m_pSocket = pSocket;
 	}
 
