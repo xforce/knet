@@ -204,15 +204,6 @@ namespace keksnl
 #pragma region Ordered Packet stuff
 
 		{ /* Ordered packet process */
-			// TODO: fix this code, it is not really reliable/safe
-			/* Notes directly from my brain: rather than just sort by index which could be more than one times in the list we should also use the datagram sequence number
-			which makes it much better
-			then we should look in a packet if there is max ordered index and 0 we have to process max before 0 which is currently not
-			the case
-			we could also use time stamp which is slower and i think it would be same as using the datagram sequence
-			number
-			think about how a proper way to make it fast, safe and reliable
-			*/
 
 			int i = 0;
 			uint16 lastIndex = 0;
@@ -225,7 +216,6 @@ namespace keksnl
 
 					//DEBUG_LOG("Sort");
 
-					// This might work if the sort does not fuck up the order of the packets in a seqeuenceNumber which is think is not guranteed so we need a different approach
 					std::stable_sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
 					{
 						return (packet.sequenceNumber < packet_.sequenceNumber);
@@ -353,9 +343,6 @@ namespace keksnl
 			// Send queued packets
 			for (auto &packet : sendBuffer)
 			{
-				/* TODO: Message number */
-				/* TODO: create a message packet and add it to the DatagramPacket */
-
 				if (packet.reliability == PacketReliability::RELIABLE
 					|| packet.reliability == PacketReliability::RELIABLE_ORDERED)
 				{
@@ -366,9 +353,7 @@ namespace keksnl
 					pCurrentPacket = pUnrealiableDatagramPacket;
 				}
 
-				pCurrentPacket->packets.push_back(std::move(packet));
-
-				if (pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+				auto sendPacket = [&]()
 				{
 					pCurrentPacket->Serialize(bitStream);
 
@@ -399,7 +384,47 @@ namespace keksnl
 					}
 
 					bitStream.Reset();
+
+					// Update the current packet again because it could be used again later
+					if (packet.reliability == PacketReliability::RELIABLE
+						|| packet.reliability == PacketReliability::RELIABLE_ORDERED)
+					{
+						pCurrentPacket = pReliableDatagramPacket;
+					}
+					else
+					{
+						pCurrentPacket = pUnrealiableDatagramPacket;
+					}
+				};
+
+				if(packet.GetSizeToSend() + pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+				{
+					sendPacket();
+
+					if(packet.GetSizeToSend() >= MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend())
+					{
+						// Split packet
+						// TODO
+					}
+					else
+					{
+						// 
+						// This packet does not exceed max size, so add it to the next packet
+
+
+						pCurrentPacket->packets.push_back(std::move(packet));
+					}
 				}
+				else
+				{
+					pCurrentPacket->packets.push_back(std::move(packet));
+				}
+
+				if (pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+				{
+					sendPacket();
+				}
+
 			}
 
 			if (pUnrealiableDatagramPacket->packets.size())

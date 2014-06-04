@@ -213,6 +213,9 @@ namespace keksnl
 		{
 			bitStream.Write(reliability);
 
+			// Write flags / 1 Byte
+			//bitStream.Write();
+
 			if(reliability == PacketReliability::RELIABLE_ORDERED)
 			{
 				bitStream.Write(orderedInfo);
@@ -225,6 +228,9 @@ namespace keksnl
 		void Deserialize(CBitStream &bitStream)
 		{
 			bitStream.Read(reliability);
+
+			// Read the flags / ! Byte
+			//bitStream.Read();
 
 			if(reliability == PacketReliability::RELIABLE_ORDERED)
 			{
