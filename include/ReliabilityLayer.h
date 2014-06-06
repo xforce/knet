@@ -308,6 +308,8 @@ namespace keksnl
 		{
 			header.Deserialize(bitStream);
 
+			packets.reserve(10);
+
 			if (!header.isACK && !header.isNACK)
 			{
 				while (bitStream.ReadOffset() < BYTES_TO_BITS(bitStream.Size()))
@@ -318,6 +320,8 @@ namespace keksnl
 					packets.push_back(std::move(packet));
 				}
 			}
+
+			packets.shrink_to_fit();
 		}
 
 		size_t GetSizeToSend()

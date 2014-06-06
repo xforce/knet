@@ -56,9 +56,6 @@ namespace keksnl
 
 	}
 
-	/*
-		TODO: change this to eventHandler for Socket
-	*/
 	bool CReliabilityLayer::OnReceive(InternalRecvPacket *packet)
 	{
 		if (eventHandler)
@@ -449,6 +446,8 @@ namespace keksnl
 
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
+				resendBuffer.reserve(2);
+
 				resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pReliableDatagramPacket)});
 			}
 			else
@@ -458,7 +457,7 @@ namespace keksnl
 #pragma endregion
 
 			// This fixes high memory consumption
-			if (resendBuffer.capacity() > 512)
+			if (resendBuffer.capacity() > 2048)
 				resendBuffer.shrink_to_fit();
 
 			sendBuffer.clear();
