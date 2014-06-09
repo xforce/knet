@@ -411,6 +411,8 @@ namespace keksnl
 
 						uint16 splitIndex = 0;
 
+						uint16 splitPacketNumber = flowControlHelper.GetSplitPacketIndex();
+
 						for (int n = 0; n < packet.Size();)
 						{
 							ReliablePacket tmpPacket(packet.Data() + dataOffset, n - dataOffset);
@@ -421,6 +423,8 @@ namespace keksnl
 							// It works similar to the ordered stuff
 
 							tmpPacket.splitInfo.index = splitIndex++;
+							tmpPacket.splitInfo.packetIndex = splitPacketNumber;
+							tmpPacket.reliability = PacketReliability::RELIABLE;
 
 							splitPackets.push_back(std::move(tmpPacket));
 							
@@ -659,27 +663,37 @@ namespace keksnl
 					else
 						DEBUG_LOG("Got Unrealiable");
 
-					for (auto &packet : dPacket.packets)
+
+					if (dPacket.header.isSplit)
 					{
-						if (packet.reliability >= PacketReliability::RELIABLE)
-						{
-							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
-								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-						}
+						auto &packet = dPacket.packets.at(0);
 
-						if(packet.reliability == PacketReliability::RELIABLE_ORDERED)
+						packet.
+					}
+					else
+					{
+						for (auto &packet : dPacket.packets)
 						{
-							packet.sequenceNumber = dPacket.header.sequenceNumber;
-							packet.socketAddress = pPacket->remoteAddress;
-
-							orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(packet));
-							
-						}
-						else
-						{
-							if (eventHandler)
+							if (packet.reliability >= PacketReliability::RELIABLE)
 							{
-								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
+								if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+									firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+							}
+
+							if (packet.reliability == PacketReliability::RELIABLE_ORDERED)
+							{
+								packet.sequenceNumber = dPacket.header.sequenceNumber;
+								packet.socketAddress = pPacket->remoteAddress;
+
+								orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(packet));
+
+							}
+							else
+							{
+								if (eventHandler)
+								{
+									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
+								}
 							}
 						}
 					}
@@ -866,4 +880,18 @@ namespace keksnl
 		else
 			acknowledgements.shrink_to_fit();
 	}
+
+	void CReliabilityLayer::SetOrderingChannel(uint8 ucChannel)
+	{
+
+	}
+
+	uint8 CReliabilityLayer::GetOrderingChannel()
+	{
+		return uint8();
+	}
+
+
+
 };
+

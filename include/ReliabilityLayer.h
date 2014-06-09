@@ -78,6 +78,7 @@ namespace keksnl
 	{
 	private:
 		int32 sequenceNumber = 0;
+		uint16 splitNumber = 0;
 
 	public:
 
@@ -87,6 +88,11 @@ namespace keksnl
 				sequenceNumber = 0;
 
 			return sequenceNumber++;
+		}
+
+		uint16 GetSplitPacketIndex()
+		{
+			return splitNumber++;
 		}
 	};
 
@@ -171,6 +177,8 @@ namespace keksnl
 		SequenceNumberType sequenceNumber = 0;
 		SocketAddress socketAddress;
 
+		bool isSplit = false;
+
 		ReliablePacket()
 		{
 
@@ -211,6 +219,7 @@ namespace keksnl
 			this->orderedInfo = other.orderedInfo;
 			this->splitInfo = other.splitInfo;
 			this->sequenceNumber = other.sequenceNumber;
+			this->isSplit = other.isSplit;
 			
 			other.pData = nullptr;
 		}
@@ -234,6 +243,10 @@ namespace keksnl
 			{
 				bitStream.Write(orderedInfo);
 			}
+			else if (isSplit)
+			{
+				bitStream.Write(splitInfo);
+			}
 
 			bitStream.Write(dataLength);
 			bitStream.Write(pData, dataLength);
@@ -249,6 +262,10 @@ namespace keksnl
 			if(reliability == PacketReliability::RELIABLE_ORDERED)
 			{
 				bitStream.Read(orderedInfo);
+			}
+			else if (isSplit)
+			{
+				bitStream.Read(splitInfo);
 			}
 
 			bitStream.Read(dataLength);
@@ -291,6 +308,7 @@ namespace keksnl
 			this->orderedInfo = other.orderedInfo;
 			this->splitInfo = other.splitInfo;
 			this->sequenceNumber = other.sequenceNumber;
+			this->isSplit = other.isSplit;
 
 			other.pData = nullptr;
 			return *this;
@@ -330,6 +348,9 @@ namespace keksnl
 				while (bitStream.ReadOffset() < BYTES_TO_BITS(bitStream.Size()))
 				{
 					ReliablePacket packet;
+
+					packet.isSplit = header.isSplit;
+
 					packet.Deserialize(bitStream);
 
 					packets.push_back(std::move(packet));
@@ -424,6 +445,8 @@ namespace keksnl
 
 
 		bool ProcessPacket(InternalRecvPacket *pPacket);
+
+		bool SplitPacket(ReliablePacket & packet);
 
 	public:
 		CReliabilityLayer(ISocket * pSocket = nullptr);
