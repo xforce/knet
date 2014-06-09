@@ -99,6 +99,7 @@ namespace keksnl
 		bool isACK;
 		bool isNACK;
 		bool isReliable = true;
+		bool isSplit = false;
 		SequenceNumberType sequenceNumber = 0;
 
 
@@ -107,10 +108,10 @@ namespace keksnl
 			bitStream.Write(isACK);
 			bitStream.Write(isNACK);
 			bitStream.Write(isReliable);
+			bitStream.Write(isSplit);
 
 			// Now fill to 1 byte to improve performance
 			// This can later be used for more information in the header
-			bitStream.Write0();
 			bitStream.Write0();
 			bitStream.Write0();
 			bitStream.Write0();
@@ -126,7 +127,9 @@ namespace keksnl
 			bitStream.Read(isACK);
 			bitStream.Read(isNACK);
 			bitStream.Read(isReliable);
-			bitStream.SetReadOffset(bitStream.ReadOffset() + 5);
+			bitStream.Read(isSplit);
+
+			bitStream.SetReadOffset(bitStream.ReadOffset() + 4);
 
 			if (!isACK && !isNACK && isReliable)
 				bitStream.Read(sequenceNumber);
@@ -144,6 +147,12 @@ namespace keksnl
 		uint8 channel;
 	};
 
+	struct SplitInfo
+	{
+		uint16 index;
+		uint16 packetIndex;
+	};
+
 	struct ReliablePacket
 	{
 	private:
@@ -154,7 +163,11 @@ namespace keksnl
 	public:
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
 		PacketPriority priority;
+		
 		OrderedInfo orderedInfo;
+
+		SplitInfo splitInfo;
+	
 		SequenceNumberType sequenceNumber = 0;
 		SocketAddress socketAddress;
 
@@ -196,6 +209,7 @@ namespace keksnl
 			this->reliability = other.reliability;
 			this->dataLength = other.dataLength;
 			this->orderedInfo = other.orderedInfo;
+			this->splitInfo = other.splitInfo;
 			this->sequenceNumber = other.sequenceNumber;
 			
 			other.pData = nullptr;
@@ -256,7 +270,7 @@ namespace keksnl
 
 		size_t GetSizeToSend()
 		{
-			return sizeof(dataLength)+dataLength;
+			return sizeof(reliability) + +(reliability == PacketReliability::RELIABLE_ORDERED ? sizeof(orderedInfo) : 0) + sizeof(dataLength) + dataLength;
 		}
 
 		ReliablePacket & operator=(const ReliablePacket &other) = delete;
@@ -275,6 +289,7 @@ namespace keksnl
 			this->reliability = other.reliability;
 			this->dataLength = other.dataLength;
 			this->orderedInfo = other.orderedInfo;
+			this->splitInfo = other.splitInfo;
 			this->sequenceNumber = other.sequenceNumber;
 
 			other.pData = nullptr;

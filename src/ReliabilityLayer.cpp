@@ -402,6 +402,101 @@ namespace keksnl
 					{
 						// Split packet
 						// TODO
+
+						// Split the data in multiple packets
+						std::vector<ReliablePacket> splitPackets;
+						splitPackets.reserve(packet.Size() / (MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend() - 20) + 1);
+
+						int dataOffset = 0;
+
+						uint16 splitIndex = 0;
+
+						for (int n = 0; n < packet.Size();)
+						{
+							ReliablePacket tmpPacket(packet.Data() + dataOffset, n - dataOffset);
+
+							// Set up packet 
+							// We need index to merge them together on the remote side
+							// 
+							// It works similar to the ordered stuff
+
+							tmpPacket.splitInfo.index = splitIndex++;
+
+							splitPackets.push_back(std::move(tmpPacket));
+							
+							if (dataOffset + n + (MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend() - 20) + 1 >= packet.Size())
+							{
+								dataOffset += n;
+								n += (MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend() - 20) + 1;
+							}
+							else
+							{
+								dataOffset += n;
+								n += packet.Size() - dataOffset;
+							}
+						}
+
+						// Now we have the data split in multiple packets
+						// We can now send the packets
+						// Each packet will get it´s own Datagram Packet
+
+						DatagramPacket * pSplitDatagramPacket = nullptr;
+
+						if (pReliableDatagramPacket->packets.size())
+						{
+							pSplitDatagramPacket = new DatagramPacket();
+
+							pSplitDatagramPacket->header.isACK = false;
+							pSplitDatagramPacket->header.isNACK = false;
+							pSplitDatagramPacket->header.isReliable = true;
+							pSplitDatagramPacket->header.isSplit = true;
+							pSplitDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+						}
+						else
+						{
+							// Use the reliable packet data
+
+							pSplitDatagramPacket = pReliableDatagramPacket;
+
+							pReliableDatagramPacket = nullptr;
+						}
+
+						CBitStream bitStream;
+
+						for (auto &splitPacket : splitPackets)
+						{
+						
+							pSplitDatagramPacket->packets.push_back(std::move(splitPacket));
+
+							// Now send the packet
+
+							pSplitDatagramPacket->Serialize(bitStream);
+
+							if (m_pSocket)
+								m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+							bitStream.Reset();
+
+							resendBuffer.push_back({ curTime, std::unique_ptr<DatagramPacket>(pSplitDatagramPacket) });
+
+							pSplitDatagramPacket = new DatagramPacket();
+
+							pSplitDatagramPacket->header.isACK = false;
+							pSplitDatagramPacket->header.isNACK = false;
+							pSplitDatagramPacket->header.isReliable = true;
+							pSplitDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+						}
+
+						// If we used the reliablePacket create a new one
+						if (pReliableDatagramPacket == nullptr)
+						{
+							pReliableDatagramPacket = new DatagramPacket();
+
+							pReliableDatagramPacket->header.isACK = false;
+							pReliableDatagramPacket->header.isNACK = false;
+							pReliableDatagramPacket->header.isReliable = true;
+							pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+						}
 					}
 					else
 					{
