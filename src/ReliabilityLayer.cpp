@@ -396,117 +396,18 @@ namespace keksnl
 
 				if(packet.GetSizeToSend() + pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
 				{
-					sendPacket();
+					if (pCurrentPacket->packets.size())
+						sendPacket();
 
 					if(packet.GetSizeToSend() >= MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend())
 					{
-						// Split packet
-						// TODO
-
-						// Split the data in multiple packets
-						std::vector<ReliablePacket> splitPackets;
-						splitPackets.reserve(packet.Size() / (MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend() - 20) + 1);
-
-						int dataOffset = 0;
-
-						uint16 splitIndex = 0;
-
-						uint16 splitPacketNumber = flowControlHelper.GetSplitPacketIndex();
-
-						for (int n = 0; n < packet.Size();)
-						{
-							ReliablePacket tmpPacket(packet.Data() + dataOffset, n - dataOffset);
-
-							// Set up packet 
-							// We need index to merge them together on the remote side
-							// 
-							// It works similar to the ordered stuff
-
-							tmpPacket.splitInfo.index = splitIndex++;
-							tmpPacket.splitInfo.packetIndex = splitPacketNumber;
-							tmpPacket.reliability = PacketReliability::RELIABLE;
-
-							splitPackets.push_back(std::move(tmpPacket));
-							
-							if (dataOffset + n + (MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend() - 20) + 1 >= packet.Size())
-							{
-								dataOffset += n;
-								n += (MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend() - 20) + 1;
-							}
-							else
-							{
-								dataOffset += n;
-								n += packet.Size() - dataOffset;
-							}
-						}
-
-						// Now we have the data split in multiple packets
-						// We can now send the packets
-						// Each packet will get it´s own Datagram Packet
-
-						DatagramPacket * pSplitDatagramPacket = nullptr;
-
-						if (pReliableDatagramPacket->packets.size())
-						{
-							pSplitDatagramPacket = new DatagramPacket();
-
-							pSplitDatagramPacket->header.isACK = false;
-							pSplitDatagramPacket->header.isNACK = false;
-							pSplitDatagramPacket->header.isReliable = true;
-							pSplitDatagramPacket->header.isSplit = true;
-							pSplitDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-						}
-						else
-						{
-							// Use the reliable packet data
-
-							pSplitDatagramPacket = pReliableDatagramPacket;
-
-							pReliableDatagramPacket = nullptr;
-						}
-
-						CBitStream bitStream;
-
-						for (auto &splitPacket : splitPackets)
-						{
-						
-							pSplitDatagramPacket->packets.push_back(std::move(splitPacket));
-
-							// Now send the packet
-
-							pSplitDatagramPacket->Serialize(bitStream);
-
-							if (m_pSocket)
-								m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
-
-							bitStream.Reset();
-
-							resendBuffer.push_back({ curTime, std::unique_ptr<DatagramPacket>(pSplitDatagramPacket) });
-
-							pSplitDatagramPacket = new DatagramPacket();
-
-							pSplitDatagramPacket->header.isACK = false;
-							pSplitDatagramPacket->header.isNACK = false;
-							pSplitDatagramPacket->header.isReliable = true;
-							pSplitDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-						}
-
-						// If we used the reliablePacket create a new one
-						if (pReliableDatagramPacket == nullptr)
-						{
-							pReliableDatagramPacket = new DatagramPacket();
-
-							pReliableDatagramPacket->header.isACK = false;
-							pReliableDatagramPacket->header.isNACK = false;
-							pReliableDatagramPacket->header.isReliable = true;
-							pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-						}
+						// pReliableDatagramPacket is a fresh packet so we can use it
+						SplitPacket(packet, &pReliableDatagramPacket);
 					}
 					else
 					{
 						// 
 						// This packet does not exceed max size, so add it to the next packet
-
 
 						pCurrentPacket->packets.push_back(std::move(packet));
 					}
@@ -608,7 +509,9 @@ namespace keksnl
 						bitStream.Read(min);
 						bitStream.Read(max);
 
+#if DEBUG_ACKS
 						DEBUG_LOG("Got ACK for %d %d on {%p}", min, max, this);
+#endif
 
 						ranges.push_back({min, max});
 					}
@@ -647,6 +550,7 @@ namespace keksnl
 				{
 					// Now process the packet
 
+#if DEBUG_ACKS
 					for (auto i : acknowledgements)
 					{
 						if (dPacket.header.sequenceNumber == i)
@@ -655,6 +559,7 @@ namespace keksnl
 							break;
 						}
 					}
+#endif
 
 					//DEBUG_LOG("Got packet %d", dh.sequenceNumber);
 
@@ -668,7 +573,69 @@ namespace keksnl
 					{
 						auto &packet = dPacket.packets.at(0);
 
-						packet.
+						// handle split packets
+
+						if (packet.splitInfo.index == 0)
+						{
+							// Make check if packet is crap 
+
+							// first packet so it a new packet
+							splitPacketBuffer[packet.splitInfo.packetIndex].push_back(std::move(packet));
+						}
+						else
+						{
+							splitPacketBuffer[packet.splitInfo.packetIndex].push_back(std::move(packet));
+						}
+
+						if (packet.splitInfo.isEnd)
+						{
+							// Merge this shit together
+
+							CBitStream bitStream{MAX_MTU_SIZE};
+
+							std::sort(splitPacketBuffer[packet.splitInfo.packetIndex].begin(), splitPacketBuffer[packet.splitInfo.packetIndex].end(), [](const ReliablePacket &packet, const ReliablePacket &packet_) -> bool
+							{
+								return (packet.splitInfo.index < packet_.splitInfo.index);
+							});
+
+							//int size = 0;
+
+							//for (auto &tPacket : splitPacketBuffer[packet.splitInfo.packetIndex])
+							//{
+							//	size += tPacket.Size();
+							//}
+
+							for (auto &tPacket : splitPacketBuffer[packet.splitInfo.packetIndex])
+							{
+								bitStream.Write(tPacket.Data(), tPacket.Size());
+							}
+
+							
+
+							ReliablePacket completePacket{bitStream.Data(), bitStream.Size()};
+
+							completePacket.orderedInfo = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->orderedInfo;
+							completePacket.reliability = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->reliability;
+
+							DEBUG_LOG("Got Packet with %d and %s", completePacket.Size(), completePacket.Data());
+
+							splitPacketBuffer[packet.splitInfo.packetIndex].clear();
+
+							if (completePacket.reliability == PacketReliability::RELIABLE_ORDERED)
+							{
+								completePacket.sequenceNumber = dPacket.header.sequenceNumber;
+								completePacket.socketAddress = pPacket->remoteAddress;
+
+								orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(completePacket));
+							}
+							else
+							{
+								if (eventHandler)
+								{
+									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, completePacket, pPacket->remoteAddress);
+								}
+							}
+						}
 					}
 					else
 					{
@@ -686,7 +653,6 @@ namespace keksnl
 								packet.socketAddress = pPacket->remoteAddress;
 
 								orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(packet));
-
 							}
 							else
 							{
@@ -821,7 +787,9 @@ namespace keksnl
 				min = acknowledgements[i];
 				max = acknowledgements[i];
 
+#if DEBUG_ACKS
 				DEBUG_LOG("Send acks for %d %d", min, max);
+#endif
 
 				bitStream.Write<SequenceNumberType>(min);
 				bitStream.Write<SequenceNumberType>(max);
@@ -837,7 +805,9 @@ namespace keksnl
 				// First diff at next so write max to current and write info to bitStream
 				max = acknowledgements[i];
 
+#if DEBUG_ACKS
 				DEBUG_LOG("Send acks for %d %d", min, max);
+#endif
 
 				bitStream.Write<SequenceNumberType>(min);
 				bitStream.Write<SequenceNumberType>(max);
@@ -891,7 +861,156 @@ namespace keksnl
 		return uint8();
 	}
 
+	bool CReliabilityLayer::SplitPacket(ReliablePacket &packet, DatagramPacket ** ppDatagramPacket)
+	{
+		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
+		auto pDatagramPacket = *ppDatagramPacket;
+
+		// Split the data in multiple packets
+		std::vector<ReliablePacket> splitPackets;
+		splitPackets.reserve(packet.Size() / (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1);
+
+		int dataOffset = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
+
+		uint16 splitIndex = 0;
+
+		uint16 splitPacketNumber = flowControlHelper.GetSplitPacketIndex();
+
+		for (int n = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1; dataOffset < packet.Size();)
+		{
+
+			ReliablePacket tmpPacket(packet.Data() + dataOffset - n, n);
+
+			// Set up packet 
+			// We need index to merge them together on the remote side
+			// 
+			// It works similar to the ordered stuff
+
+			tmpPacket.splitInfo.index = splitIndex++;
+			tmpPacket.splitInfo.packetIndex = splitPacketNumber;
+			tmpPacket.isSplit = true;
+
+			if (tmpPacket.splitInfo.index == 0)
+			{
+				tmpPacket.reliability = packet.reliability;
+				tmpPacket.orderedInfo = packet.orderedInfo;
+			}
+			
+			// In case of Ordered packets only the first packet need the ordered info
+			// This reduces the overhead
+
+			if (tmpPacket.splitInfo.index > 0)
+				tmpPacket.reliability = PacketReliability::RELIABLE;
+
+			splitPackets.push_back(std::move(tmpPacket));
+
+			if (packet.Size() - (dataOffset) > (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1)
+			{
+				dataOffset += n;
+				n = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
+			}
+			else
+			{
+				n = packet.Size() - dataOffset;
+				dataOffset += n;
+
+				ReliablePacket tmpPacket(packet.Data() + dataOffset - n, n);
+
+				// Set up packet 
+				// We need index to merge them together on the remote side
+				// 
+				// It works similar to the ordered stuff
+
+				tmpPacket.isSplit = true;
+				tmpPacket.splitInfo.index = splitIndex++;
+				tmpPacket.splitInfo.packetIndex = splitPacketNumber;
 
 
+				// In case of Ordered packets only the first packet need the ordered info
+				// This reduces the overhead
+
+				if (tmpPacket.splitInfo.index > 0)
+					tmpPacket.reliability = PacketReliability::RELIABLE;
+
+				splitPackets.push_back(std::move(tmpPacket));
+			}
+		}
+
+		if (dataOffset != packet.Size())
+		{
+			ReliablePacket tmpPacket(packet.Data() + dataOffset, packet.Size() - dataOffset);
+
+			tmpPacket.isSplit = true;
+			tmpPacket.splitInfo.index = splitIndex++;
+			tmpPacket.splitInfo.packetIndex = splitPacketNumber;
+
+			if (tmpPacket.splitInfo.index > 0)
+				tmpPacket.reliability = PacketReliability::RELIABLE;
+
+			splitPackets.push_back(std::move(tmpPacket));
+		}
+
+		splitPackets.back().splitInfo.isEnd = true;
+
+		// Now we have the data split in multiple packets
+		// We can now send the packets
+		// Each packet will get it´s own Datagram Packet
+
+		DatagramPacket * pSplitDatagramPacket = nullptr;
+
+		// Just in case
+		if (pDatagramPacket->packets.size())
+		{
+			pSplitDatagramPacket = new DatagramPacket();
+
+			pSplitDatagramPacket->header.isACK = false;
+			pSplitDatagramPacket->header.isNACK = false;
+			pSplitDatagramPacket->header.isReliable = true;
+			pSplitDatagramPacket->header.isSplit = true;
+			pSplitDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+		}
+		else
+		{
+			// Use the reliable packet data
+
+			pSplitDatagramPacket = pDatagramPacket;
+			pSplitDatagramPacket->header.isSplit = true;
+			pDatagramPacket = nullptr;
+		}
+
+		CBitStream bitStream{MAX_MTU_SIZE};
+
+		for (auto &splitPacket : splitPackets)
+		{
+
+			pSplitDatagramPacket->packets.push_back(std::move(splitPacket));
+
+			// Now send the packet
+
+			pSplitDatagramPacket->Serialize(bitStream);
+
+			if (m_pSocket)
+				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+			bitStream.Reset();
+
+			resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pSplitDatagramPacket)});
+
+			pSplitDatagramPacket = new DatagramPacket();
+
+			pSplitDatagramPacket->header.isACK = false;
+			pSplitDatagramPacket->header.isNACK = false;
+			pSplitDatagramPacket->header.isReliable = true;
+			pSplitDatagramPacket->header.isSplit = true;
+			pSplitDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+		}
+
+		pSplitDatagramPacket->header.isSplit = false;
+
+		*ppDatagramPacket = pSplitDatagramPacket;
+
+		return true;
+	};
 };
 

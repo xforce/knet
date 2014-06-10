@@ -105,6 +105,12 @@ namespace keksnl
 
 		// TODO: set initial socket options
 
+		int sock_opt = 1024 * 128; // 128 KB
+		setsockopt( m_Socket, SOL_SOCKET, SO_RCVBUF, (const char*)&sock_opt, sizeof(sock_opt));
+
+		sock_opt = 1024 * 16; // 16 KB
+		setsockopt(m_Socket, SOL_SOCKET, SO_SNDBUF, (const char*)&sock_opt, sizeof(sock_opt));
+
 #if 0 // Actually this makes it slower, because of CPU Bound crap fucking threads are taking to much cpu - I will work on that later
 		u_long iMode = 1;
 		ioctlsocket(m_Socket, FIONBIO, &iMode);

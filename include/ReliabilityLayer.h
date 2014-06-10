@@ -90,6 +90,11 @@ namespace keksnl
 			return sequenceNumber++;
 		}
 
+		int GetCurrentSequenceNumber()
+		{
+			return sequenceNumber;
+		}
+
 		uint16 GetSplitPacketIndex()
 		{
 			return splitNumber++;
@@ -157,13 +162,14 @@ namespace keksnl
 	{
 		uint16 index;
 		uint16 packetIndex;
+		uint8 isEnd = false;
 	};
 
 	struct ReliablePacket
 	{
 	private:
 		bool selfAllocated = false;
-		char * pData = nullptr;
+		std::unique_ptr<char> pData = nullptr;
 		uint16 dataLength = 0;
 
 	public:
@@ -188,7 +194,7 @@ namespace keksnl
 
 		char * Data()
 		{
-			return pData;
+			return pData.get();
 		}
 
 		decltype(dataLength) Size()
@@ -198,8 +204,9 @@ namespace keksnl
 
 		ReliablePacket(char * data, ::size_t length)
 		{
-			pData = (char*)(malloc(length));
-			memcpy(pData, data, length);
+			
+			pData = std::unique_ptr<char>{new char[length]};
+			memcpy(pData.get(), data, length);
 			selfAllocated = true;
 			dataLength = length;
 		}
@@ -211,7 +218,7 @@ namespace keksnl
 				return;
 #endif
 
-			this->pData = other.pData;
+			this->pData = std::move(other.pData);
 			this->selfAllocated = other.selfAllocated;
 			this->priority = other.priority;
 			this->reliability = other.reliability;
@@ -226,9 +233,6 @@ namespace keksnl
 
 		~ReliablePacket()
 		{
-			if (pData && selfAllocated)
-				free(pData);
-
 			pData = nullptr;
 		}
 
@@ -243,13 +247,14 @@ namespace keksnl
 			{
 				bitStream.Write(orderedInfo);
 			}
-			else if (isSplit)
+			
+			if (isSplit)
 			{
 				bitStream.Write(splitInfo);
 			}
 
 			bitStream.Write(dataLength);
-			bitStream.Write(pData, dataLength);
+			bitStream.Write(pData.get(), dataLength);
 		}
 
 		void Deserialize(CBitStream &bitStream)
@@ -263,21 +268,19 @@ namespace keksnl
 			{
 				bitStream.Read(orderedInfo);
 			}
-			else if (isSplit)
+			
+			if (isSplit)
 			{
 				bitStream.Read(splitInfo);
 			}
 
 			bitStream.Read(dataLength);
 
-			if (pData)
-				free(pData);
-
-			pData = (char*)(malloc(dataLength));
+			pData = std::unique_ptr<char>{new char[dataLength]};
 
 			selfAllocated = true;
 
-			bitStream.Read(pData, dataLength);
+			bitStream.Read(pData.get(), dataLength);
 
 			if (!pData)
 			{
@@ -287,7 +290,7 @@ namespace keksnl
 
 		size_t GetSizeToSend()
 		{
-			return sizeof(reliability) + +(reliability == PacketReliability::RELIABLE_ORDERED ? sizeof(orderedInfo) : 0) + sizeof(dataLength) + dataLength;
+			return sizeof(reliability) + (reliability == PacketReliability::RELIABLE_ORDERED ? sizeof(orderedInfo) : 0) + sizeof(dataLength) + dataLength;
 		}
 
 		ReliablePacket & operator=(const ReliablePacket &other) = delete;
@@ -300,7 +303,7 @@ namespace keksnl
 				return *this;
 #endif
 
-			this->pData = other.pData;
+			this->pData = std::move(other.pData);
 			this->selfAllocated = other.selfAllocated;
 			this->priority = other.priority;
 			this->reliability = other.reliability;
@@ -432,6 +435,11 @@ namespace keksnl
 		std::array<std::vector<ReliablePacket>, std::numeric_limits<decltype(orderingChannel)>::max()> orderedPacketBuffer;
 #endif
 
+#if WIN32
+		std::array<std::vector<ReliablePacket>, 65535> splitPacketBuffer;
+#else
+		std::array<std::vector<ReliablePacket>, std::numeric_limits<uint16>::max()> splitPacketBuffer;
+#endif
 
 #if WIN32
 		std::array<uint16, 255> lastOrderedIndex;
@@ -446,7 +454,7 @@ namespace keksnl
 
 		bool ProcessPacket(InternalRecvPacket *pPacket);
 
-		bool SplitPacket(ReliablePacket & packet);
+		bool SplitPacket(ReliablePacket & packet, DatagramPacket ** pDatagramPacket);
 
 	public:
 		CReliabilityLayer(ISocket * pSocket = nullptr);
