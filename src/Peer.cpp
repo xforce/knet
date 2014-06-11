@@ -49,7 +49,7 @@ namespace keksnl
 		// Now connect our peer with the socket
 		pSocket->GetEventHandler().AddEvent(SocketEvents::RECEIVE, mkEventN(&Peer::OnReceive, this), this);
 
-		// Not we want to handle the received packets in our reliabilityLayer
+		// Now we want to handle the received packets in our reliabilityLayer
 		reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET,
 													mkEventN(&Peer::HandlePacket, this), this);
 
@@ -105,7 +105,7 @@ namespace keksnl
 
 	void Peer::Send(System &peer, const char * data, size_t len, bool im)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::IMMEDIATE : PacketPriority::HIGH), PacketReliability::RELIABLE_ORDERED);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::IMMEDIATE : PacketPriority::HIGH), PacketReliability::RELIABLE);
 	}
 
 

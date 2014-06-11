@@ -288,14 +288,19 @@ namespace keksnl
 #pragma region Resend Stuff
 		bitStream.Reset();
 		/* I think it better to do it beforce sending the new packets because of stuff */
-		for (auto & resendPacket : resendBuffer)
+		for (auto &resendPacket : resendBuffer)
 		{
+			// This slow
 			if ((curTime - resendPacket.first).count() > 10000)
 			{
 				bitStream.Reset();
 
+
+				// Is it better to add the packet to the send buffer? could be useful for later congestion control
+				
 				// Resend the packet
 				resendPacket.second->Serialize(bitStream);
+				
 				if (m_pSocket)
 					m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
@@ -310,12 +315,13 @@ namespace keksnl
 
 #pragma region Send Stuff
 
-		// TODO: split packets
-
 		// This fixes high memory consumption
-		sendBuffer.shrink_to_fit();
+		if(sendBuffer.capacity() > 2048)
+			sendBuffer.shrink_to_fit();
+
 		bitStream.Reset();
-		if (sendBuffer.size())
+
+		if (sendBuffer.size() > 0)
 		{
 			// Is it easy to use smart pointers in a good way here?
 
@@ -396,12 +402,12 @@ namespace keksnl
 
 				if(packet.GetSizeToSend() + pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
 				{
-					if (pCurrentPacket->packets.size())
+					if (pCurrentPacket->packets.size() > 0)
 						sendPacket();
 
 					if(packet.GetSizeToSend() >= MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend())
 					{
-						// pReliableDatagramPacket is a fresh packet so we can use it
+						// The packet is bigger than MAX_MTU_SIZE so we have to split it
 						SplitPacket(packet, &pReliableDatagramPacket);
 					}
 					else
@@ -414,6 +420,7 @@ namespace keksnl
 				}
 				else
 				{
+					// We can add the packet because it will fit in the current packet
 					pCurrentPacket->packets.push_back(std::move(packet));
 				}
 
@@ -571,26 +578,30 @@ namespace keksnl
 
 					if (dPacket.header.isSplit)
 					{
-						auto &packet = dPacket.packets.at(0);
+						auto &packet = dPacket.packets[0];
 
 						// handle split packets
 
 						if (packet.splitInfo.index == 0)
 						{
-							// Make check if packet is crap 
+							// Check if this index is already in use
+							if(splitPacketBuffer.at(packet.splitInfo.packetIndex).size() > 0)
+							{
+								// Handle already in use
 
-							// first packet so it a new packet
-							splitPacketBuffer[packet.splitInfo.packetIndex].push_back(std::move(packet));
+							}
+							else
+								// first packet so it a new packet
+								splitPacketBuffer.at(packet.splitInfo.packetIndex).push_back(std::move(packet));
 						}
 						else
 						{
-							splitPacketBuffer[packet.splitInfo.packetIndex].push_back(std::move(packet));
+							splitPacketBuffer.at(packet.splitInfo.packetIndex).push_back(std::move(packet));
 						}
 
 						if (packet.splitInfo.isEnd)
 						{
-							// Merge this shit together
-
+							//
 							CBitStream bitStream{MAX_MTU_SIZE};
 
 							std::sort(splitPacketBuffer[packet.splitInfo.packetIndex].begin(), splitPacketBuffer[packet.splitInfo.packetIndex].end(), [](const ReliablePacket &packet, const ReliablePacket &packet_) -> bool
@@ -598,28 +609,20 @@ namespace keksnl
 								return (packet.splitInfo.index < packet_.splitInfo.index);
 							});
 
-							//int size = 0;
-
-							//for (auto &tPacket : splitPacketBuffer[packet.splitInfo.packetIndex])
-							//{
-							//	size += tPacket.Size();
-							//}
-
 							for (auto &tPacket : splitPacketBuffer[packet.splitInfo.packetIndex])
 							{
 								bitStream.Write(tPacket.Data(), tPacket.Size());
 							}
-
-							
 
 							ReliablePacket completePacket{bitStream.Data(), bitStream.Size()};
 
 							completePacket.orderedInfo = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->orderedInfo;
 							completePacket.reliability = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->reliability;
 
-							DEBUG_LOG("Got Packet with %d and %s", completePacket.Size(), completePacket.Data());
+							DEBUG_LOG("Got Packet with %d and %d", completePacket.Size(), strlen(completePacket.Data()));
 
 							splitPacketBuffer[packet.splitInfo.packetIndex].clear();
+							splitPacketBuffer[packet.splitInfo.packetIndex].shrink_to_fit();
 
 							if (completePacket.reliability == PacketReliability::RELIABLE_ORDERED)
 							{
@@ -630,7 +633,7 @@ namespace keksnl
 							}
 							else
 							{
-								if (eventHandler)
+								//if (eventHandler)
 								{
 									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, completePacket, pPacket->remoteAddress);
 								}
@@ -639,8 +642,10 @@ namespace keksnl
 					}
 					else
 					{
+						// Handle not split packet
 						for (auto &packet : dPacket.packets)
 						{
+							// 
 							if (packet.reliability >= PacketReliability::RELIABLE)
 							{
 								if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
@@ -656,7 +661,7 @@ namespace keksnl
 							}
 							else
 							{
-								if (eventHandler)
+								//if(eventHandler)
 								{
 									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
 								}
@@ -672,11 +677,11 @@ namespace keksnl
 
 		// New connection
 		// Handle new connection event
-		if (eventHandler)
+		//if (eventHandler)
 		{
 			// Handle new connection
 			auto r = eventHandler.Call(ReliabilityEvents::NEW_CONNECTION, pPacket);
-			if (r != eventHandler.NO_EVENT /* this should not happen */ && r != eventHandler.ALL_TRUE /* one handler refused the connection */)
+			if (r != eventHandler.NO_EVENT && r != eventHandler.ALL_TRUE /* one handler refused the connection */)
 			{
 				// NOTIFY REMOTE SYSTEM THAT THE CONNECTION WAS REFUSED
 				// Now call connection refused event
@@ -736,6 +741,7 @@ namespace keksnl
 		// so it seems only broken on Linux/GCC
 		//acknowledgements.shrink_to_fit();
 
+#if 0
 		bool bnil = false;
 		for(auto i : acknowledgements)
 		{
@@ -745,13 +751,14 @@ namespace keksnl
 				DEBUG_LOG("on {%p} contains 0", this);
 			}
 		}
+#endif
 
 		// Sort the unsorted vector so we can write the ranges
 		std::sort(acknowledgements.begin(), acknowledgements.end());
 
+#if 0
 		if(acknowledgements[0] == 1)
 			DEBUG_LOG("0 1 on {%p}", this);
-
 
 		for(auto i : acknowledgements)
 		{
@@ -761,6 +768,7 @@ namespace keksnl
 				DEBUG_LOG("double check on {%p} contains 0", this);
 			}
 		}
+#endif
 
 		CBitStream bitStream{MAX_MTU_SIZE};
 
@@ -826,29 +834,37 @@ namespace keksnl
 			}
 		}
 
+		// Remove all acknowledgements we have written from the vector
 		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo);
-		
 
 		DatagramHeader dh;
 		dh.isACK = true;
 		dh.isNACK = false;
 
-		keksnl::CBitStream out{bitStream.Size() + dh.GetSizeToSend()};
+		CBitStream ackBS{bitStream.Size() + dh.GetSizeToSend()};
 
-		dh.Serialize(out);
+		dh.Serialize(ackBS);
 
-		out.Write(writeCount);
-		out.Write(bitStream.Data(), bitStream.Size());
+		ackBS.Write(writeCount);
 
+		// Write the bitstream with the ack ranges to the bitstream we have to send
+		ackBS.Write(bitStream.Data(), bitStream.Size());
+
+		// 
 		if (m_pSocket)
-			m_pSocket->Send(m_RemoteSocketAddress, out.Data(), out.Size());
+			m_pSocket->Send(m_RemoteSocketAddress, ackBS.Data(), ackBS.Size());
 
+		// Reset the firstUnsentAck to 0
 		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 
+		// Check if we have to rerun the SendACKs if we exceeded the max size we can sent in one packet
 		if (rerun)
 			SendACKs();
-		else
-			acknowledgements.shrink_to_fit();
+		else /* Now shrink the vector so it will not take much memory */
+		{
+			if(acknowledgements.capacity() > 65535)
+				acknowledgements.shrink_to_fit();
+		}
 	}
 
 	void CReliabilityLayer::SetOrderingChannel(uint8 ucChannel)
@@ -865,6 +881,8 @@ namespace keksnl
 	{
 		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
+		// Save the original packet which was given as a param
+		// 
 		auto pDatagramPacket = *ppDatagramPacket;
 
 		// Split the data in multiple packets
@@ -877,10 +895,10 @@ namespace keksnl
 
 		uint16 splitPacketNumber = flowControlHelper.GetSplitPacketIndex();
 
-		for (int n = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1; dataOffset < packet.Size();)
+		for (int chunkSize = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1; dataOffset < packet.Size();)
 		{
 
-			ReliablePacket tmpPacket(packet.Data() + dataOffset - n, n);
+			ReliablePacket tmpPacket(packet.Data() + dataOffset - chunkSize, chunkSize);
 
 			// Set up packet 
 			// We need index to merge them together on the remote side
@@ -907,15 +925,18 @@ namespace keksnl
 
 			if (packet.Size() - (dataOffset) > (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1)
 			{
-				dataOffset += n;
-				n = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
+				// increase the offset by the size of the next chunk
+				dataOffset += chunkSize;
+
+				// and recalculate the chunk size
+				chunkSize = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
 			}
 			else
 			{
-				n = packet.Size() - dataOffset;
-				dataOffset += n;
+				chunkSize = packet.Size() - dataOffset;
+				dataOffset += chunkSize;
 
-				ReliablePacket tmpPacket(packet.Data() + dataOffset - n, n);
+				ReliablePacket tmpPacket(packet.Data() + dataOffset - chunkSize, chunkSize);
 
 				// Set up packet 
 				// We need index to merge them together on the remote side
@@ -983,7 +1004,7 @@ namespace keksnl
 
 		for (auto &splitPacket : splitPackets)
 		{
-
+			// Add the packet to the datagram packet
 			pSplitDatagramPacket->packets.push_back(std::move(splitPacket));
 
 			// Now send the packet
@@ -992,6 +1013,8 @@ namespace keksnl
 
 			if (m_pSocket)
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+			// Reset the bitstream so we can use it in the next iteration
 
 			bitStream.Reset();
 
@@ -1008,6 +1031,7 @@ namespace keksnl
 
 		pSplitDatagramPacket->header.isSplit = false;
 
+		// Assing the nex created datagram packet so the given packet can be used | ah fuck i dont know how to explain this better
 		*ppDatagramPacket = pSplitDatagramPacket;
 
 		return true;

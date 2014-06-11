@@ -82,7 +82,7 @@ namespace keksnl
 
 	public:
 
-		int GetSequenceNumber()
+		decltype(sequenceNumber) GetSequenceNumber()
 		{
 			if (sequenceNumber >= std::numeric_limits<decltype(sequenceNumber)>::max())
 				sequenceNumber = 0;
@@ -90,13 +90,16 @@ namespace keksnl
 			return sequenceNumber++;
 		}
 
-		int GetCurrentSequenceNumber()
+		decltype(sequenceNumber) GetCurrentSequenceNumber()
 		{
 			return sequenceNumber;
 		}
 
-		uint16 GetSplitPacketIndex()
+		decltype(splitNumber) GetSplitPacketIndex()
 		{
+			if (splitNumber >= std::numeric_limits<decltype(splitNumber)>::max())
+				splitNumber = 0;
+
 			return splitNumber++;
 		}
 	};

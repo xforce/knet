@@ -32,6 +32,10 @@
 
 #include <thread>
 
+#ifndef WIN32
+#include <fcntl.h>
+#endif
+
 namespace keksnl
 {
 #ifdef WIN32
@@ -112,8 +116,14 @@ namespace keksnl
 		setsockopt(m_Socket, SOL_SOCKET, SO_SNDBUF, (const char*)&sock_opt, sizeof(sock_opt));
 
 #if 0 // Actually this makes it slower, because of CPU Bound crap fucking threads are taking to much cpu - I will work on that later
-		u_long iMode = 1;
-		ioctlsocket(m_Socket, FIONBIO, &iMode);
+#ifdef WIN32
+	u_long iMode = 1;
+	ioctlsocket(m_Socket, FIONBIO, &iMode);
+#else
+	int flags = fcntl(m_Socket, F_GETFL, 0);
+	flags = (flags|O_NONBLOCK);
+	fcntl(m_Socket, F_SETFL, flags);
+#endif
 #endif
 
 		// Bind the socket to the address in bindArgs
