@@ -157,7 +157,7 @@ namespace keksnl
 				sendPacket.orderedInfo.channel = orderingChannel;
 			}
 
-			sendBuffer.push_back(std::move(sendPacket));
+			sendBuffer[sendPacket.priority].push_back(std::move(sendPacket));
 
 			return;
 		}
@@ -316,12 +316,15 @@ namespace keksnl
 #pragma region Send Stuff
 
 		// This fixes high memory consumption
-		if(sendBuffer.capacity() > 2048)
-			sendBuffer.shrink_to_fit();
+		//if(sendBuffer.capacity() > 2048)
+		//	sendBuffer.shrink_to_fit();
 
-		bitStream.Reset();
+		// Send to high then 1 medium after 2 medium send 1 low
 
-		if (sendBuffer.size() > 0)
+		PacketPriority nextPriority = PacketPriority::HIGH;
+
+		ReliablePacket packet;
+
 		{
 			// Is it easy to use smart pointers in a good way here?
 
@@ -343,9 +346,57 @@ namespace keksnl
 
 			DatagramPacket * pCurrentPacket = pReliableDatagramPacket;
 
-			// Send queued packets
-			for (auto &packet : sendBuffer)
+			int mediumsSent = 0;
+			int lowSent = 0;
+			int highSent = 0;
+
+
+
+			auto GetNextPriority = [&]() -> PacketPriority {
+				if (highSent == 2)
+				{
+					highSent = 0;
+					if (mediumsSent == 2)
+					{
+						mediumsSent = 0;
+						return PacketPriority::LOW;
+					}
+					else
+					{
+						mediumsSent++;
+						return PacketPriority::MEDIUM;
+					}
+				}
+				else
+				{
+					highSent++;
+					return PacketPriority::HIGH;
+				}
+			};
+
+			for (int i = 0; i < 100; ++i)
 			{
+				nextPriority = GetNextPriority();
+
+				for (PacketPriority prio = nextPriority; prio > PacketPriority::LOW; prio = (PacketPriority)(prio - 1))
+				{
+					if (sendBuffer[prio].size())
+						break;
+					else
+					{
+						nextPriority = prio;
+					}
+				}
+
+				if (sendBuffer[nextPriority].size() == 0)
+					break;
+
+				packet = std::move(sendBuffer[nextPriority].front());
+
+				sendBuffer[nextPriority].erase(sendBuffer[nextPriority].begin());
+
+				// Now remove the packet from the list
+
 				if (packet.reliability == PacketReliability::RELIABLE
 					|| packet.reliability == PacketReliability::RELIABLE_ORDERED)
 				{
@@ -400,12 +451,12 @@ namespace keksnl
 					}
 				};
 
-				if(packet.GetSizeToSend() + pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+				if (packet.GetSizeToSend() + pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
 				{
 					if (pCurrentPacket->packets.size() > 0)
 						sendPacket();
 
-					if(packet.GetSizeToSend() >= MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend())
+					if (packet.GetSizeToSend() >= MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend())
 					{
 						// The packet is bigger than MAX_MTU_SIZE so we have to split it
 						SplitPacket(packet, &pReliableDatagramPacket);
@@ -429,6 +480,71 @@ namespace keksnl
 					sendPacket();
 				}
 
+			}
+
+
+			if (pUnrealiableDatagramPacket->packets.size())
+			{
+				bitStream.Reset();
+				pUnrealiableDatagramPacket->Serialize(bitStream);
+				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+				// Unrealiable packets are not needed anymore
+				delete pUnrealiableDatagramPacket;
+			}
+			else
+			{
+				delete pUnrealiableDatagramPacket;
+			}
+
+			if (pReliableDatagramPacket->packets.size())
+			{
+				bitStream.Reset();
+
+				pReliableDatagramPacket->Serialize(bitStream);
+
+				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+				resendBuffer.reserve(2);
+
+				resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pReliableDatagramPacket)});
+			}
+			else
+			{
+				delete pReliableDatagramPacket;
+			}
+
+		}
+
+		bitStream.Reset();
+
+#if 0
+		if (sendBuffer.size() > 0)
+		{
+			// Is it easy to use smart pointers in a good way here?
+
+			/* TODO: kinda hacky, make it better :D */
+
+			DatagramPacket* pReliableDatagramPacket = new DatagramPacket();
+			DatagramPacket* pUnrealiableDatagramPacket = new DatagramPacket();
+
+			/* Setup Unrealiable datagram packet */
+			pUnrealiableDatagramPacket->header.isACK = false;
+			pUnrealiableDatagramPacket->header.isNACK = false;
+			pUnrealiableDatagramPacket->header.isReliable = false;
+
+			/* Setup Reliable datagram packet */
+			pReliableDatagramPacket->header.isACK = false;
+			pReliableDatagramPacket->header.isNACK = false;
+			pReliableDatagramPacket->header.isReliable = true;
+			pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+
+			DatagramPacket * pCurrentPacket = pReliableDatagramPacket;
+
+			// Send queued packets
+			for (auto &packet : sendBuffer)
+			{
+				
 			}
 
 			if (pUnrealiableDatagramPacket->packets.size())
@@ -466,9 +582,8 @@ namespace keksnl
 			// This fixes high memory consumption
 			if (resendBuffer.capacity() > 2048)
 				resendBuffer.shrink_to_fit();
-
-			sendBuffer.clear();
 		}
+#endif
 	}
 
 	void CReliabilityLayer::RemoveRemote(const SocketAddress& remoteAddress)

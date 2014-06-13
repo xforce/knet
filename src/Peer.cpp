@@ -105,7 +105,7 @@ namespace keksnl
 
 	void Peer::Send(System &peer, const char * data, size_t len, bool im)
 	{
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::IMMEDIATE : PacketPriority::HIGH), PacketReliability::RELIABLE);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
 	}
 
 

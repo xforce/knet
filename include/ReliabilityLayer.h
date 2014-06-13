@@ -55,13 +55,14 @@ namespace keksnl
 		TIMEOUT = 0,
 	};
 
-	enum class PacketPriority : uint8
+	enum PacketPriority : uint8
 	{
 		/* Will skip send buffer, so you have the control when this packet is sent*/
-		IMMEDIATE = 0,
-		HIGH,
-		MEDIUM,
 		LOW,
+		MEDIUM,
+		HIGH,
+		IMMEDIATE,
+		MAX,
 	};
 
 	enum class PacketReliability : uint8
@@ -428,7 +429,8 @@ namespace keksnl
 		std::vector<SequenceNumberType> acknowledgements;
 
 
-		std::vector<ReliablePacket> sendBuffer;
+		//std::vector<ReliablePacket> sendBuffer;
+		std::array < std::vector<ReliablePacket>, static_cast<std::size_t>(PacketPriority::IMMEDIATE)> sendBuffer;
 
 		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, std::unique_ptr<DatagramPacket>>> resendBuffer;
 

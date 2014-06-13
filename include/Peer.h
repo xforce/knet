@@ -94,8 +94,9 @@ namespace keksnl
 					// Send back
 					std::string d("Send back");
 					Send(*system, d.c_str(), d.size()+1, false);
+					Send(*system, d.c_str(), d.size()+1, true);
 					Send(*system, d.c_str(), d.size()+1, false);
-					Send(*system, d.c_str(), d.size()+1, false);
+					Send(*system, d.c_str(), d.size() + 1, true);
 				}
 			}
 
