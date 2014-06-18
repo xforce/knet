@@ -32,6 +32,8 @@
 
 namespace keksnl
 {
+	static const std::chrono::milliseconds resendTime = std::chrono::milliseconds(10000);
+
 	CReliabilityLayer::CReliabilityLayer(ISocket * pSocket)
 		: m_pSocket(pSocket)
 	{
@@ -287,11 +289,13 @@ namespace keksnl
 
 #pragma region Resend Stuff
 		bitStream.Reset();
+
+		auto curResendTime = curTime - resendTime;
+
 		/* I think it better to do it beforce sending the new packets because of stuff */
 		for (auto &resendPacket : resendBuffer)
 		{
-			// This slow
-			if ((curTime - resendPacket.first).count() > 10000)
+			if(curResendTime > resendPacket.first)
 			{
 				bitStream.Reset();
 
@@ -319,7 +323,7 @@ namespace keksnl
 		//if(sendBuffer.capacity() > 2048)
 		//	sendBuffer.shrink_to_fit();
 
-		// Send to high then 1 medium after 2 medium send 1 low
+		// Send 2 high then 1 medium after 2 medium send 1 low
 
 		PacketPriority nextPriority = PacketPriority::HIGH;
 
@@ -515,8 +519,6 @@ namespace keksnl
 
 				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
-				resendBuffer.reserve(2);
-
 				resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pReliableDatagramPacket)});
 			}
 			else
@@ -683,6 +685,7 @@ namespace keksnl
 					// Now process the packet
 
 #if DEBUG_ACKS
+#if 0
 					for (auto i : acknowledgements)
 					{
 						if (dPacket.header.sequenceNumber == i)
@@ -691,6 +694,7 @@ namespace keksnl
 							break;
 						}
 					}
+#endif
 #endif
 
 					//DEBUG_LOG("Got packet %d", dh.sequenceNumber);
