@@ -178,23 +178,21 @@ namespace keksnl
 		++bitsUsed;
 	}
 
-	bool CBitStream::Write(const unsigned char *pData, size_t size)
+	bool CBitStream::Write(const unsigned char *data, size_t size)
 	{
 		PrepareWrite(BYTES_TO_BITS(size));
 
-		// This might cause bad performance because we have todo the same in writebits. Question How can we optimize that?
-		// Check if we can just use memcpy :)
 		const size_t bitsToWrite = BYTES_TO_BITS(size);
 
 		if ((bitsUsed & 7) == 0)
 		{
-			memcpy(this->pData + BITS_TO_BYTES(bitsUsed), pData, size);
+			memcpy(this->pData + BITS_TO_BYTES(bitsUsed), data, size);
 			bitsUsed += bitsToWrite;
 			return true;
 		}
 		else
 		{
-			return WriteBits(pData, bitsToWrite);
+			return WriteBits(data, bitsToWrite);
 		}
 	}
 
@@ -339,6 +337,21 @@ namespace keksnl
 	{
 		this->readOffset = readOffset;
 	}
+
+	void CBitStream::SetWriteOffset(size_t writeOffset)
+	{ 
+		PrepareWrite(writeOffset - this->bitsUsed);
+
+		bitsUsed = writeOffset;
+	}
+
+	void CBitStream::AddWriteOffset(size_t writeOffset)
+	{ 
+		PrepareWrite(this->bitsUsed + writeOffset);
+
+		bitsUsed += writeOffset;
+	}
+
 
 #if 0
 	template<typename T>

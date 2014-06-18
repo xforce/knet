@@ -127,10 +127,7 @@ namespace keksnl
 
 			// Now fill to 1 byte to improve performance
 			// This can later be used for more information in the header
-			bitStream.Write0();
-			bitStream.Write0();
-			bitStream.Write0();
-			bitStream.Write0();
+			bitStream.AddWriteOffset(4);
 
 			/* To save bandwith for ack/nack */
 			if (!isACK && !isNACK && isReliable)
@@ -172,7 +169,6 @@ namespace keksnl
 	struct ReliablePacket
 	{
 	private:
-		bool selfAllocated = false;
 		std::unique_ptr<char> pData = nullptr;
 		uint16 dataLength = 0;
 
@@ -211,7 +207,6 @@ namespace keksnl
 			
 			pData = std::unique_ptr<char>{new char[length]};
 			memcpy(pData.get(), data, length);
-			selfAllocated = true;
 			dataLength = length;
 		}
 
@@ -223,7 +218,6 @@ namespace keksnl
 #endif
 
 			this->pData = std::move(other.pData);
-			this->selfAllocated = other.selfAllocated;
 			this->priority = other.priority;
 			this->reliability = other.reliability;
 			this->dataLength = other.dataLength;
@@ -282,14 +276,7 @@ namespace keksnl
 
 			pData = std::unique_ptr<char>{new char[dataLength]};
 
-			selfAllocated = true;
-
 			bitStream.Read(pData.get(), dataLength);
-
-			if (!pData)
-			{
-				DEBUG_LOG("Invalid Data");
-			}
 		}
 
 		size_t GetSizeToSend()
@@ -308,7 +295,6 @@ namespace keksnl
 #endif
 
 			this->pData = std::move(other.pData);
-			this->selfAllocated = other.selfAllocated;
 			this->priority = other.priority;
 			this->reliability = other.reliability;
 			this->dataLength = other.dataLength;
@@ -346,16 +332,18 @@ namespace keksnl
 
 		void Deserialze(CBitStream & bitStream)
 		{
+			auto bsSize = BYTES_TO_BITS(bitStream.Size());
+
 			header.Deserialize(bitStream);
 
 			packets.reserve(10);
 
+			ReliablePacket packet;
+
 			if (!header.isACK && !header.isNACK)
 			{
-				while (bitStream.ReadOffset() < BYTES_TO_BITS(bitStream.Size()))
+				while (bitStream.ReadOffset() < bsSize)
 				{
-					ReliablePacket packet;
-
 					packet.isSplit = header.isSplit;
 
 					packet.Deserialize(bitStream);

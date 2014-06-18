@@ -374,26 +374,28 @@ namespace keksnl
 				}
 			};
 
+
+			int bufIndex[PacketPriority::IMMEDIATE] = {0};
+
 			for (int i = 0; i < 100; ++i)
 			{
 				nextPriority = GetNextPriority();
 
 				for (PacketPriority prio = nextPriority; prio > PacketPriority::LOW; prio = (PacketPriority)(prio - 1))
 				{
-					if (sendBuffer[prio].size())
-						break;
-					else
-					{
-						nextPriority = prio;
-					}
+					nextPriority = prio;
+
+					if (sendBuffer[prio].size() > bufIndex[prio])						
+						break;	
 				}
 
-				if (sendBuffer[nextPriority].size() == 0)
+				if (sendBuffer[nextPriority].size() == 0 || sendBuffer[nextPriority].size() <= bufIndex[nextPriority])
 					break;
 
-				packet = std::move(sendBuffer[nextPriority].front());
 
-				sendBuffer[nextPriority].erase(sendBuffer[nextPriority].begin());
+				packet = std::move(sendBuffer[nextPriority].at(bufIndex[nextPriority]++));
+
+				//sendBuffer[nextPriority].erase(sendBuffer[nextPriority].begin());
 
 				// Now remove the packet from the list
 
@@ -480,6 +482,14 @@ namespace keksnl
 					sendPacket();
 				}
 
+			}
+
+			for (auto p = PacketPriority::LOW; p < PacketPriority::IMMEDIATE; p = (PacketPriority)(p+1))
+			{
+				if (bufIndex[p] > 0)
+				{
+					sendBuffer[p].erase(sendBuffer[p].begin(), sendBuffer[p].begin() + (bufIndex[p]));
+				}
 			}
 
 

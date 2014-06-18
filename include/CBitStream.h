@@ -85,6 +85,10 @@ namespace keksnl
 		*/
 		bool PrepareWrite(size_t bitsToWrite);
 
+
+		void SetWriteOffset(size_t writeOffset);
+
+		void AddWriteOffset(size_t writeOffset);
 		/*
 		* 
 		*/
@@ -98,9 +102,9 @@ namespace keksnl
 			return result;
 		}
 
-		bool WriteBits(const unsigned char *pData, size_t  numberOfBits);
-		bool Write(const unsigned char *pData, size_t size);
-		bool Write(const char* pData, size_t size);
+		bool WriteBits(const unsigned char *data, size_t  numberOfBits);
+		bool Write(const unsigned char *data, size_t size);
+		bool Write(const char* data, size_t size);
 		bool Write(const std::string &str);
 		//bool Write(size_t value);
 		//bool Write(int value);
