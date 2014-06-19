@@ -51,6 +51,8 @@ namespace keksnl
 		{
 			lastOrderedIndex[i] = 0;
 		}
+
+		resendBuffer.reserve(512);
 	}
 
 	CReliabilityLayer::~CReliabilityLayer()
@@ -630,10 +632,12 @@ namespace keksnl
 				if (dPacket.header.isACK)
 				{
 					// Handle ACK Packet
-					std::vector<std::pair<int, int>> ranges;
+					
 
-					int count = 0;
+					uint32 count = 0;
 					bitStream.Read(count);
+
+					std::vector<std::pair<int, int>> ranges(count);
 
 					int max;
 					int min;
@@ -904,7 +908,7 @@ namespace keksnl
 		int min = -1;
 		int max = 0;
 		int writtenTo = 0;
-		int writeCount = 0;
+		uint32 writeCount = 0;
 
 		// Now write the range stuff to the bitstream
 		for (int i = 0; i < acknowledgements.size(); ++i)

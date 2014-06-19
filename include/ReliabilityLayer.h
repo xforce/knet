@@ -336,7 +336,7 @@ namespace keksnl
 
 			header.Deserialize(bitStream);
 
-			packets.reserve(10);
+			packets.reserve(5);
 
 			ReliablePacket packet;
 
@@ -351,8 +351,8 @@ namespace keksnl
 					packets.push_back(std::move(packet));
 				}
 			}
-
-			packets.shrink_to_fit();
+			
+			/*packets.shrink_to_fit();*/
 		}
 
 		size_t GetSizeToSend()
