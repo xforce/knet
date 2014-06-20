@@ -204,93 +204,31 @@ namespace keksnl
 
 #pragma region Ordered Packet stuff
 
-		{ /* Ordered packet process */
-
-			int i = 0;
-			uint16 lastIndex = 0;
-			uint8 channel = 0;
-
-			for (auto & orderedPackets : orderedPacketBuffer)
-			{
-				if (orderedPackets.size())
-				{
-
-					//DEBUG_LOG("Sort");
-
-					std::stable_sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
-					{
-						return (packet.sequenceNumber < packet_.sequenceNumber);
-					});
-
-					if (orderedPackets.size())
-					{
-						lastIndex = lastOrderedIndex[orderedPackets.begin()->orderedInfo.channel];
-
-						for (auto &packet : orderedPackets)
-						{
-
-							if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
-								firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-
-							if (lastIndex > packet.orderedInfo.index)
-							{
-								lastIndex = packet.orderedInfo.index;
-
-								//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
-								if (packet.orderedInfo.index == 0)
-									DEBUG_LOG("Process ordered 0 on %p", this);
-
-								if (eventHandler)
-								{
-									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, packet.socketAddress);
-								}
-
-								orderedPackets.erase(orderedPackets.begin());
-
-								break;
-
-							}
-							else if (packet.orderedInfo.index > 0 && packet.orderedInfo.index != (lastIndex + 1))
-							{
-								break;
-							}
-							else
-							{
-
-								//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
-
-								if (packet.orderedInfo.index == 0)
-									DEBUG_LOG("Process ordered 0 on %p", this);
-
-								lastIndex = packet.orderedInfo.index;
-								if (eventHandler)
-								{
-									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, packet.socketAddress);
-								}
-							}
-
-							++i;
-							channel = packet.orderedInfo.channel;
-						}
-					}
-
-					lastOrderedIndex[channel] = lastIndex;
-
-					if (i > 0)
-						orderedPackets.erase(orderedPackets.begin(), orderedPackets.begin() + i);
-
-					i = 0;
-					lastIndex = 0;
-				}
-			}
-		}
+		ProcessOrderedPackets(curTime);
 
 #pragma endregion
 
-		CBitStream bitStream{MAX_MTU_SIZE};
+
 
 #pragma region Resend Stuff
-		bitStream.Reset();
+
+		ProcessResend(curTime);
+
+#pragma endregion
+
+
+
+
+#pragma region Send Stuff
+
+		ProcessSend(curTime);
+
+#pragma endregion
+	}
+
+	void CReliabilityLayer::ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	{
+		CBitStream bitStream{MAX_MTU_SIZE};
 
 		auto curResendTime = curTime - resendTime;
 
@@ -317,9 +255,92 @@ namespace keksnl
 				// Dont remove them because we dont have received an ack and the sequence number is same
 			}
 		}
-#pragma endregion
+	}
 
-#pragma region Send Stuff
+	void CReliabilityLayer::ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	{
+		int i = 0;
+		uint16 lastIndex = 0;
+		uint8 channel = 0;
+
+		for (auto & orderedPackets : orderedPacketBuffer)
+		{
+			if (orderedPackets.size())
+			{
+
+				//DEBUG_LOG("Sort");
+
+				std::stable_sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
+				{
+					return (packet.sequenceNumber < packet_.sequenceNumber);
+				});
+
+				if (orderedPackets.size())
+				{
+					lastIndex = lastOrderedIndex[orderedPackets.begin()->orderedInfo.channel];
+
+					for (auto &packet : orderedPackets)
+					{
+
+						if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+							firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
+						if (lastIndex > packet.orderedInfo.index)
+						{
+							lastIndex = packet.orderedInfo.index;
+
+							//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
+							if (packet.orderedInfo.index == 0)
+								DEBUG_LOG("Process ordered 0 on %p", this);
+
+							if (eventHandler)
+							{
+								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, packet.socketAddress);
+							}
+
+							orderedPackets.erase(orderedPackets.begin());
+
+							break;
+
+						}
+						else if (packet.orderedInfo.index > 0 && packet.orderedInfo.index != (lastIndex + 1))
+						{
+							break;
+						}
+						else
+						{
+
+							//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
+
+							if (packet.orderedInfo.index == 0)
+								DEBUG_LOG("Process ordered 0 on %p", this);
+
+							lastIndex = packet.orderedInfo.index;
+							if (eventHandler)
+							{
+								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, packet.socketAddress);
+							}
+						}
+
+						++i;
+						channel = packet.orderedInfo.channel;
+					}
+				}
+
+				lastOrderedIndex[channel] = lastIndex;
+
+				if (i > 0)
+					orderedPackets.erase(orderedPackets.begin(), orderedPackets.begin() + i);
+
+				i = 0;
+				lastIndex = 0;
+			}
+		}
+	}
+
+	void CReliabilityLayer::ProcessSend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	{
+		CBitStream bitStream{MAX_MTU_SIZE};
 
 		// This fixes high memory consumption
 		//if(sendBuffer.capacity() > 2048)
@@ -529,75 +550,6 @@ namespace keksnl
 			}
 
 		}
-
-		bitStream.Reset();
-
-#if 0
-		if (sendBuffer.size() > 0)
-		{
-			// Is it easy to use smart pointers in a good way here?
-
-			/* TODO: kinda hacky, make it better :D */
-
-			DatagramPacket* pReliableDatagramPacket = new DatagramPacket();
-			DatagramPacket* pUnrealiableDatagramPacket = new DatagramPacket();
-
-			/* Setup Unrealiable datagram packet */
-			pUnrealiableDatagramPacket->header.isACK = false;
-			pUnrealiableDatagramPacket->header.isNACK = false;
-			pUnrealiableDatagramPacket->header.isReliable = false;
-
-			/* Setup Reliable datagram packet */
-			pReliableDatagramPacket->header.isACK = false;
-			pReliableDatagramPacket->header.isNACK = false;
-			pReliableDatagramPacket->header.isReliable = true;
-			pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
-
-			DatagramPacket * pCurrentPacket = pReliableDatagramPacket;
-
-			// Send queued packets
-			for (auto &packet : sendBuffer)
-			{
-				
-			}
-
-			if (pUnrealiableDatagramPacket->packets.size())
-			{
-				bitStream.Reset();
-				pUnrealiableDatagramPacket->Serialize(bitStream);
-				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
-
-				// Unrealiable packets are not needed anymore
-				delete pUnrealiableDatagramPacket;
-			}
-			else
-			{
-				delete pUnrealiableDatagramPacket;
-			}
-
-			if (pReliableDatagramPacket->packets.size())
-			{
-				bitStream.Reset();
-
-				pReliableDatagramPacket->Serialize(bitStream);
-
-				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
-
-				resendBuffer.reserve(2);
-
-				resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pReliableDatagramPacket)});
-			}
-			else
-			{
-				delete pReliableDatagramPacket;
-			}
-#pragma endregion
-
-			// This fixes high memory consumption
-			if (resendBuffer.capacity() > 2048)
-				resendBuffer.shrink_to_fit();
-		}
-#endif
 	}
 
 	void CReliabilityLayer::RemoveRemote(const SocketAddress& remoteAddress)

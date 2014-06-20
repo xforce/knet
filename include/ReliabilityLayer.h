@@ -447,6 +447,10 @@ namespace keksnl
 
 		bool ProcessPacket(InternalRecvPacket *pPacket);
 
+		void ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
+		void ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
+		void ProcessSend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
+
 		bool SplitPacket(ReliablePacket & packet, DatagramPacket ** pDatagramPacket);
 
 	public:
