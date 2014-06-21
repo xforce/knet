@@ -57,7 +57,7 @@ namespace keksnl
 
 	CReliabilityLayer::~CReliabilityLayer()
 	{
-
+		
 	}
 
 	bool CReliabilityLayer::OnReceive(InternalRecvPacket *packet)
@@ -241,18 +241,17 @@ namespace keksnl
 
 
 				// Is it better to add the packet to the send buffer? could be useful for later congestion control
-				
+
 				// Resend the packet
 				resendPacket.second->Serialize(bitStream);
 				
 				if (m_pSocket)
 					m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
+				// set the time the packet was sent
 				resendPacket.first = curTime;
 
 				DEBUG_LOG("Resent packet %d on {%p}", resendPacket.second->header.sequenceNumber, this);
-
-				// Dont remove them because we dont have received an ack and the sequence number is same
 			}
 		}
 	}
@@ -270,6 +269,7 @@ namespace keksnl
 
 				//DEBUG_LOG("Sort");
 
+				// Sort the packets but keep the relative position
 				std::stable_sort(orderedPackets.begin(), orderedPackets.end(), [](const ReliablePacket& packet, const ReliablePacket& packet_) -> bool
 				{
 					return (packet.sequenceNumber < packet_.sequenceNumber);
@@ -606,11 +606,17 @@ namespace keksnl
 						ranges.push_back({min, max});
 					}
 
+
+					// Now loop through the whole resend buffer and check if we got an ack for a packet,
+					// if we got an ack the paket will be removed from the resend buffer
+
 					auto size = resendBuffer.size();
 
 					for (int i = size-1; i >= 0; --i)
 					{
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
+						
+						// Checks if the given sequence number is in range of the given acks
 						auto isInAckRange = [](decltype(ranges)& vecRange, int sequenceNumber) -> bool
 						{
 							for (auto &k : vecRange)
@@ -623,7 +629,6 @@ namespace keksnl
 
 						if (isInAckRange(ranges, sequenceNumber))
 						{
-
 							resendBuffer.erase(resendBuffer.begin() + i);
 							//DEBUG_LOG("Remove %d from resend list", i);
 						}
@@ -657,8 +662,6 @@ namespace keksnl
 
 					if (dPacket.header.isReliable)
 						acknowledgements.push_back(dPacket.header.sequenceNumber);
-					else
-						DEBUG_LOG("Got Unrealiable");
 
 
 					if (dPacket.header.isSplit)
@@ -905,13 +908,16 @@ namespace keksnl
 				bitStream.Write<SequenceNumberType>(min);
 				bitStream.Write<SequenceNumberType>(max);
 
-				// Track the index we have written to
+				// Track the index we have written to, so we can remove the sent acks from the acknowledegements list
 				writtenTo = i;
 				writeCount++;
 
 				min = -1;
 			}
 
+			// If we have exceeded max packet size mark rerun to true,
+			// So we will send all acks
+			// Is this a good idea or should we mark it to rerun on next process?!
 			if (bitStream.Size() >= 1300)
 			{
 				rerun = true;
@@ -920,16 +926,19 @@ namespace keksnl
 		}
 
 		// Remove all acknowledgements we have written from the vector
-		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo);
+		acknowledgements.erase(acknowledgements.begin(), acknowledgements.begin() + writtenTo+1);
 
+		// Setup the datagram header for the ack packet
 		DatagramHeader dh;
 		dh.isACK = true;
 		dh.isNACK = false;
 
 		CBitStream ackBS{bitStream.Size() + dh.GetSizeToSend()};
 
+		// Serualize the datagram header
 		dh.Serialize(ackBS);
 
+		// write the count of ack ranges which have been written
 		ackBS.Write(writeCount);
 
 		// Write the bitstream with the ack ranges to the bitstream we have to send
@@ -939,14 +948,18 @@ namespace keksnl
 		if (m_pSocket)
 			m_pSocket->Send(m_RemoteSocketAddress, ackBS.Data(), ackBS.Size());
 
-		// Reset the firstUnsentAck to 0
-		firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
-
 		// Check if we have to rerun the SendACKs if we exceeded the max size we can sent in one packet
 		if (rerun)
+		{
+			// we dont reset the firstUnsent ack here so it will immediatly rerun on the next process
 			SendACKs();
+		}
 		else /* Now shrink the vector so it will not take much memory */
 		{
+
+			// Reset the firstUnsentAck to 0
+			firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
+
 			if(acknowledgements.capacity() > 65535)
 				acknowledgements.shrink_to_fit();
 		}
@@ -955,6 +968,7 @@ namespace keksnl
 	void CReliabilityLayer::SetOrderingChannel(uint8 ucChannel)
 	{
 
+		
 	}
 
 	uint8 CReliabilityLayer::GetOrderingChannel()
@@ -1061,7 +1075,7 @@ namespace keksnl
 
 		// Now we have the data split in multiple packets
 		// We can now send the packets
-		// Each packet will get it´s own Datagram Packet
+		// Each packet will get itÂ´s own Datagram Packet
 
 		DatagramPacket * pSplitDatagramPacket = nullptr;
 
