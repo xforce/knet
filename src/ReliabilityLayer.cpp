@@ -640,6 +640,51 @@ namespace keksnl
 				{
 					// Handle NACK Packet
 					// Immediatly resend the packets
+
+					uint32 count = 0;
+					bitStream.Read(count);
+
+					std::vector<std::pair<int, int>> ranges(count);
+
+					int max;
+					int min;
+
+					for (int i = 0; i < count; ++i)
+					{
+						bitStream.Read(min);
+						bitStream.Read(max);
+
+#if DEBUG_ACKS
+						DEBUG_LOG("Got NACK for %d %d on {%p}", min, max, this);
+#endif
+
+						ranges.push_back({min, max});
+					}
+
+
+					auto size = resendBuffer.size();
+
+					for (int i = size-1; i >= 0; --i)
+					{
+						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
+						
+						// Checks if the given sequence number is in range of the given acks
+						auto isInAckRange = [](decltype(ranges)& vecRange, int sequenceNumber) -> bool
+						{
+							for (auto &k : vecRange)
+							{
+								if (sequenceNumber >= k.first && sequenceNumber <= k.second)
+									return true;
+							}
+							return false;
+						};
+
+						if (isInAckRange(ranges, sequenceNumber))
+						{
+							// Resend packet
+
+						}
+					}
 				}
 				else
 				{
