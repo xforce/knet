@@ -195,7 +195,7 @@ namespace keksnl
 		while ((pPacket = PopBufferedPacket()) && pPacket != nullptr)
 		{
 			// TODO: handle return
-			ProcessPacket(pPacket);
+			ProcessPacket(pPacket, curTime);
 
 			// delete the packet after processing
 			delete pPacket;
@@ -567,7 +567,7 @@ namespace keksnl
 		}
 	}
 
-	bool CReliabilityLayer::ProcessPacket(InternalRecvPacket *pPacket)
+	bool CReliabilityLayer::ProcessPacket(InternalRecvPacket *pPacket, std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
 		for (auto &remoteSystem : remoteList)
 		{
@@ -681,8 +681,18 @@ namespace keksnl
 
 						if (isInAckRange(ranges, sequenceNumber))
 						{
-							// Resend packet
+							// todo: handle congestion control
 
+							// Resend packet
+							resendBuffer[i].second->Serialize(bitStream);
+				
+							if (m_pSocket)
+								m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+							// set the time the packet was sent
+							resendBuffer[i].first = curTime;
+
+							bitStream.Reset();
 						}
 					}
 				}
@@ -832,7 +842,7 @@ namespace keksnl
 
 		// Now handle the packet
 
-		ProcessPacket(pPacket);
+		ProcessPacket(pPacket, curTime);
 
 		return true;
 	}

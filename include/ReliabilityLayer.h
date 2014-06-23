@@ -445,7 +445,7 @@ namespace keksnl
 		void SendACKs();
 
 
-		bool ProcessPacket(InternalRecvPacket *pPacket);
+		bool ProcessPacket(InternalRecvPacket *pPacket, std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
 
 		void ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
 		void ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
