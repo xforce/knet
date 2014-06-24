@@ -55,6 +55,13 @@ namespace keksnl
 		TIMEOUT = 0,
 	};
 
+	enum class MessageID : uint8
+	{
+		CONNECTION_REQUEST,
+		CONNECTION_ACCEPTED,
+		CONNECTION_REFUSED,
+	};
+
 	enum PacketPriority : uint8
 	{
 		/* Will skip send buffer, so you have the control when this packet is sent*/

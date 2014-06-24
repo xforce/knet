@@ -42,12 +42,12 @@ namespace keksnl
 		firstUnsentAck = firstUnsentAck.min(); //std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 		lastReceiveFromRemote = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 
-		for(int i = 0; i < orderingIndex.size(); ++i)
+		for(uint32 i = 0; i < orderingIndex.size(); ++i)
 		{
 			orderingIndex[i] = 0;
 		}
 
-		for (int i = 0; i < lastOrderedIndex.size(); ++i)
+		for (uint32 i = 0; i < lastOrderedIndex.size(); ++i)
 		{
 			lastOrderedIndex[i] = 0;
 		}
@@ -185,7 +185,6 @@ namespace keksnl
 				// The Peer which handles this event should stop listening for this socket by calling StopReceiving
 				// Then the peer should remove the Remote stuff on next process not in this handler
 				eventHandler.Call(ReliabilityEvents::CONNECTION_LOST_TIMEOUT, m_RemoteSocketAddress, DisconnectReason::TIMEOUT);
-
 			}
 		}
 
@@ -402,7 +401,7 @@ namespace keksnl
 			};
 
 
-			int bufIndex[PacketPriority::IMMEDIATE] = {0};
+			uint32 bufIndex[PacketPriority::IMMEDIATE] = {0};
 
 			for (int i = 0; i < 100; ++i)
 			{
@@ -594,7 +593,7 @@ namespace keksnl
 					int max;
 					int min;
 
-					for (int i = 0; i < count; ++i)
+					for (uint32 i = 0; i < count; ++i)
 					{
 						bitStream.Read(min);
 						bitStream.Read(max);
@@ -649,7 +648,7 @@ namespace keksnl
 					int max;
 					int min;
 
-					for (int i = 0; i < count; ++i)
+					for (uint32 i = 0; i < count; ++i)
 					{
 						bitStream.Read(min);
 						bitStream.Read(max);
@@ -826,9 +825,7 @@ namespace keksnl
 			auto r = eventHandler.Call(ReliabilityEvents::NEW_CONNECTION, pPacket);
 			if (r != eventHandler.NO_EVENT && r != eventHandler.ALL_TRUE /* one handler refused the connection */)
 			{
-				// NOTIFY REMOTE SYSTEM THAT THE CONNECTION WAS REFUSED
-				// Now call connection refused event
-
+				// The remote will be notified in Peer this is not the job of the reliability layer
 				// Return false because the packet was not handled
 				return false;
 			}
@@ -921,7 +918,7 @@ namespace keksnl
 		uint32 writeCount = 0;
 
 		// Now write the range stuff to the bitstream
-		for (int i = 0; i < acknowledgements.size(); ++i)
+		for (uint32 i = 0; i < acknowledgements.size(); ++i)
 		{
 			if ((i+1 < acknowledgements.size()) && acknowledgements[i] == (acknowledgements[i + 1] - 1))
 			{ /* (Next-1) equals current, so its a range */
@@ -1043,7 +1040,7 @@ namespace keksnl
 		std::vector<ReliablePacket> splitPackets;
 		splitPackets.reserve(packet.Size() / (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1);
 
-		int dataOffset = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
+		uint32 dataOffset = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
 
 		uint16 splitIndex = 0;
 

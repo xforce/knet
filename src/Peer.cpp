@@ -34,13 +34,6 @@
 
 namespace keksnl
 {
-
-	enum class MessageID : char
-	{ 
-		CONNECTION_REQUEST,
-		CONNECTION_ACCEPTED,
-	};
-
 	Peer::Peer()
 	{
 		// Create the local socket
@@ -105,6 +98,11 @@ namespace keksnl
 
 	void Peer::Send(System &peer, const char * data, size_t len, bool im)
 	{
+		if (!isConnected)
+		{
+			//DEBUG_LOG("You are not connected");
+			return;
+		}
 		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE_ORDERED);
 	}
 
@@ -193,6 +191,7 @@ namespace keksnl
 		{
 			DEBUG_LOG("Remote accepted our connection");
 
+			isConnected = true;
 
 			for (auto system : remoteSystems)
 			{
@@ -224,6 +223,11 @@ DEBUG_LOG("Send back");
 				}
 			}
 		}
+		else if ((MessageID)pData[0] == MessageID::CONNECTION_REFUSED)
+		{
+			isConnected = false;
+			DEBUG_LOG("The remote refused our connection request");
+		}
 		else
 		{
 			return false;
@@ -253,6 +257,26 @@ DEBUG_LOG("Send back");
 
 	bool Peer::HandleNewConnection(InternalRecvPacket * pPacket)
 	{
+		if (remoteSystems.size() >= maxConnections)
+		{
+			CBitStream bitStream{MAX_MTU_SIZE};
+
+			DatagramHeader dh;
+			dh.isACK = false;
+			dh.isNACK = false;
+			dh.isReliable = false;
+			dh.sequenceNumber = 0;
+
+			dh.Serialize(bitStream);
+
+			bitStream.Write(PacketReliability::UNRELIABLE);
+			bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_REFUSED));
+			bitStream.Write(MessageID::CONNECTION_REFUSED);
+
+			this->pSocket->Send(pPacket->remoteAddress, bitStream.Data(), bitStream.Size());
+			return false;
+		}
+
 		System *system = new System;
 		system->reliabilityLayer.SetRemoteAddress(pPacket->remoteAddress);
 		system->reliabilityLayer.SetSocket(this->pSocket);

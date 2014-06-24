@@ -60,6 +60,10 @@ namespace keksnl
 		std::mutex bufferMutex;
 		std::queue<keksnl::InternalRecvPacket*> bufferedPacketQueue;
 
+		int maxConnections = 1;
+
+		bool isConnected = false;
+
 	public:
 		Peer();
 		~Peer();

@@ -48,7 +48,7 @@ class PrintLogHander : public ILogHandler
 
 int main(int argc, char** argv)
 {
-#if WIN32
+#if WIN32 && CRT_ALLOC
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
