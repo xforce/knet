@@ -39,7 +39,7 @@
 
 namespace keksnl
 {
-	class CBitStream
+	class BitStream
 	{
 	public:
 		typedef unsigned char baseType;
@@ -55,11 +55,11 @@ namespace keksnl
 
 		
 	public:
-		CBitStream();
-		CBitStream(size_t initialBytes);
-		CBitStream(CBitStream &&other);
-		CBitStream(unsigned char* _data, const int lengthInBytes, bool _copyData);
-		virtual ~CBitStream();
+		BitStream();
+		BitStream(size_t initialBytes);
+		BitStream(BitStream &&other);
+		BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData);
+		virtual ~BitStream();
 
 		void Reset()
 		{
@@ -153,19 +153,19 @@ namespace keksnl
 			return true;
 		}
 
-		bool operator=(const CBitStream &right);
-		bool operator=(CBitStream &&right);
+		bool operator=(const BitStream &right);
+		bool operator=(BitStream &&right);
 
 	public: /* Stream operators */
 
-		CBitStream& operator<<(const std::string &str)
+		BitStream& operator<<(const std::string &str)
 		{
 			Write(str);
 			return *this;
 		}
 
 		template<typename T>
-		inline CBitStream& operator<<(const T &value)
+		inline BitStream& operator<<(const T &value)
 		{
 			Write((unsigned char*)&value, sizeof(T));
 
@@ -173,7 +173,7 @@ namespace keksnl
 		}
 
 		template<typename T>
-		inline CBitStream& operator>>(const T &value)
+		inline BitStream& operator>>(const T &value)
 		{
 			Read((char*)&value, sizeof(T));
 

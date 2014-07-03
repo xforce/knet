@@ -28,17 +28,17 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "CBitStream.h"
+#include "BitStream.h"
 
 namespace keksnl
 {
 
-	CBitStream::CBitStream()
-		: CBitStream(10)
+	BitStream::BitStream()
+		: BitStream(10)
 	{
 	}
 	
-	CBitStream::CBitStream(size_t initialBytes)
+	BitStream::BitStream(size_t initialBytes)
 	{
 		if (initialBytes < BITSTREAM_STACK_SIZE)
 		{
@@ -53,7 +53,7 @@ namespace keksnl
 		}
 	}
 
-	CBitStream::CBitStream(CBitStream &&other)
+	BitStream::BitStream(BitStream &&other)
 	{
 		if (pData != stackData)
 			if (pData)
@@ -74,7 +74,7 @@ namespace keksnl
 		other.readOffset = 0;
 	}
 
-	CBitStream::CBitStream(unsigned char* _data, const int lengthInBytes, bool _copyData)
+	BitStream::BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData)
 	{
 		bitsUsed = BYTES_TO_BITS(lengthInBytes);
 		readOffset = 0;
@@ -106,7 +106,7 @@ namespace keksnl
 			pData = (unsigned char*)_data;
 	}
 
-	CBitStream::~CBitStream()
+	BitStream::~BitStream()
 	{
 		if (pData != stackData)
 			if (pData)
@@ -117,7 +117,7 @@ namespace keksnl
 		readOffset = 0;
 	}
 
-	bool CBitStream::AllocateBits(size_t numberOfBits)
+	bool BitStream::AllocateBits(size_t numberOfBits)
 	{
 		size_t newBitsAllocated = bitsAllocated + numberOfBits;
 
@@ -143,7 +143,7 @@ namespace keksnl
 		return true;
 	}
 
-	bool CBitStream::PrepareWrite(size_t bitsToWrite)
+	bool BitStream::PrepareWrite(size_t bitsToWrite)
 	{
 		if ((bitsAllocated - bitsUsed) >= bitsToWrite)
 			return true;
@@ -153,7 +153,7 @@ namespace keksnl
 		}
 	}
 
-	void CBitStream::Write0()
+	void BitStream::Write0()
 	{
 		PrepareWrite(1);
 
@@ -164,7 +164,7 @@ namespace keksnl
 		++bitsUsed;
 	}
 
-	void CBitStream::Write1()
+	void BitStream::Write1()
 	{
 		PrepareWrite(1);
 
@@ -178,7 +178,7 @@ namespace keksnl
 		++bitsUsed;
 	}
 
-	bool CBitStream::Write(const unsigned char *data, size_t size)
+	bool BitStream::Write(const unsigned char *data, size_t size)
 	{
 		PrepareWrite(BYTES_TO_BITS(size));
 
@@ -196,7 +196,7 @@ namespace keksnl
 		}
 	}
 
-	bool CBitStream::Write(const char *pData, size_t size)
+	bool BitStream::Write(const char *pData, size_t size)
 	{
 		PrepareWrite(BYTES_TO_BITS(size));
 
@@ -217,7 +217,7 @@ namespace keksnl
 	}
 
 
-	bool CBitStream::WriteBits(const unsigned char *pData, size_t  numberOfBits)
+	bool BitStream::WriteBits(const unsigned char *pData, size_t  numberOfBits)
 	{
 		const size_t numberOfBitsUsedMod8 = bitsUsed & 7;
 
@@ -261,7 +261,7 @@ namespace keksnl
 	}
 
 
-	bool CBitStream::Read(char *pData, size_t size)
+	bool BitStream::Read(char *pData, size_t size)
 	{
 		if ((readOffset & 7) == 0)
 		{
@@ -278,7 +278,7 @@ namespace keksnl
 		return true;
 	}
 
-	bool CBitStream::ReadBits(char *pData, size_t  numberOfBits)
+	bool BitStream::ReadBits(char *pData, size_t  numberOfBits)
 	{
 		if (numberOfBits <= 0)
 			return false;
@@ -326,26 +326,26 @@ namespace keksnl
 		}
 	}
 
-	bool CBitStream::Write(const std::string &str)
+	bool BitStream::Write(const std::string &str)
 	{
 		return (Write(str.length())
 				&& Write((unsigned char*)str.c_str(), str.size()));
 	}
 
 
-	void CBitStream::SetReadOffset(size_t readOffset)
+	void BitStream::SetReadOffset(size_t readOffset)
 	{
 		this->readOffset = readOffset;
 	}
 
-	void CBitStream::SetWriteOffset(size_t writeOffset)
+	void BitStream::SetWriteOffset(size_t writeOffset)
 	{ 
 		PrepareWrite(writeOffset - this->bitsUsed);
 
 		bitsUsed = writeOffset;
 	}
 
-	void CBitStream::AddWriteOffset(size_t writeOffset)
+	void BitStream::AddWriteOffset(size_t writeOffset)
 	{ 
 		PrepareWrite(this->bitsUsed + writeOffset);
 
@@ -355,13 +355,13 @@ namespace keksnl
 
 #if 0
 	template<typename T>
-	bool CBitStream::Write(const T &value)
+	bool BitStream::Write(const T &value)
 	{
 		return Write((unsigned char*)&value, sizeof(T));
 	}
 
 	template<typename T>
-	bool CBitStream::Read(T &value)
+	bool BitStream::Read(T &value)
 	{
 		return Read((unsigned char*)&value, sizeof(T));
 	}
@@ -369,7 +369,7 @@ namespace keksnl
 
 #pragma region operators
 
-	bool CBitStream::operator=(const CBitStream &right)
+	bool BitStream::operator=(const BitStream &right)
 	{
 		PrepareWrite(right.bitsUsed);
 
@@ -380,7 +380,7 @@ namespace keksnl
 		return true;
 	}
 
-	bool CBitStream::operator=(CBitStream &&right)
+	bool BitStream::operator=(BitStream &&right)
 	{
 		if (pData != stackData)
 			if (pData)

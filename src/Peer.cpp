@@ -30,7 +30,7 @@
 
 #include <Peer.h>
 
-#include <CBitStream.h>
+#include <BitStream.h>
 
 namespace keksnl
 {
@@ -66,7 +66,7 @@ namespace keksnl
 
 	void Peer::Connect(const char * szRemoteAddress, unsigned short usPort)
 	{
-		CBitStream bitStream{MAX_MTU_SIZE};
+		BitStream bitStream{MAX_MTU_SIZE};
 
 		DatagramHeader dh;
 		dh.isACK = false;
@@ -158,7 +158,7 @@ namespace keksnl
 		{
 			DEBUG_LOG("Connection request");
 
-			CBitStream bitStream{MAX_MTU_SIZE};
+			BitStream bitStream{MAX_MTU_SIZE};
 
 			DatagramHeader dh;
 			dh.isACK = false;
@@ -259,7 +259,7 @@ DEBUG_LOG("Send back");
 	{
 		if (remoteSystems.size() >= maxConnections)
 		{
-			CBitStream bitStream{MAX_MTU_SIZE};
+			BitStream bitStream{MAX_MTU_SIZE};
 
 			DatagramHeader dh;
 			dh.isACK = false;

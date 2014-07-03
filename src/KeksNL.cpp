@@ -1,7 +1,7 @@
 
 #include <Common.h>
 
-#include "CBitStream.h"
+#include "BitStream.h"
 
 #include "Sockets/BerkleySocket.h"
 #include "ReliabilityLayer.h"
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 	if(acknowledgements[0] == 1)
 		DEBUG_LOG("0 1 on {%p}", 0);
 
-	keksnl::CBitStream bitStream;
+	keksnl::BitStream bitStream;
 
 	int min = -1;
 	int max = 0;
@@ -194,7 +194,7 @@ int main(int argc, char** argv)
 
 	acknowledgements.clear();
 
-	keksnl::CBitStream out;
+	keksnl::BitStream out;
 	out.Write(writeCount);
 	out.Write(bitStream.Data(), bitStream.Size());
 
@@ -315,7 +315,7 @@ int main(int argc, char** argv)
 
 
 #pragma region Old BitStream Test Code
-	//keksnl::CBitStream bit;
+	//keksnl::BitStream bit;
 	//const char  *keks = "Hallo wie gehts!";
 	//bit.Write((unsigned char*)keks, strlen("Hallo wie gehts!") + 1);
 	//bit.Write((unsigned char*)keks, strlen("Hallo wie gehts!") + 1);

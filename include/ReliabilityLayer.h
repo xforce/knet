@@ -125,7 +125,7 @@ namespace keksnl
 		SequenceNumberType sequenceNumber = 0;
 
 
-		virtual void Serialize(CBitStream & bitStream)
+		virtual void Serialize(BitStream & bitStream)
 		{
 			bitStream.Write(isACK);
 			bitStream.Write(isNACK);
@@ -141,7 +141,7 @@ namespace keksnl
 				bitStream.Write(sequenceNumber);
 		}
 
-		virtual void Deserialize(CBitStream & bitStream)
+		virtual void Deserialize(BitStream & bitStream)
 		{
 			bitStream.Read(isACK);
 			bitStream.Read(isNACK);
@@ -241,7 +241,7 @@ namespace keksnl
 			pData = nullptr;
 		}
 
-		void Serialize(CBitStream &bitStream)
+		void Serialize(BitStream &bitStream)
 		{
 			bitStream.Write(reliability);
 
@@ -262,7 +262,7 @@ namespace keksnl
 			bitStream.Write(pData.get(), dataLength);
 		}
 
-		void Deserialize(CBitStream &bitStream)
+		void Deserialize(BitStream &bitStream)
 		{
 			bitStream.Read(reliability);
 
@@ -326,7 +326,7 @@ namespace keksnl
 
 		}
 
-		void Serialize(CBitStream & bitStream)
+		void Serialize(BitStream & bitStream)
 		{
 
 			header.Serialize(bitStream);
@@ -337,7 +337,7 @@ namespace keksnl
 
 		}
 
-		void Deserialze(CBitStream & bitStream)
+		void Deserialze(BitStream & bitStream)
 		{
 			auto bsSize = BYTES_TO_BITS(bitStream.Size());
 

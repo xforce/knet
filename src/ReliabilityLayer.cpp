@@ -105,7 +105,7 @@ namespace keksnl
 	{
 		if (priority == PacketPriority::IMMEDIATE)
 		{
-			CBitStream bitStream{BITS_TO_BYTES(numberOfBitsToSend) + 20};
+			BitStream bitStream{BITS_TO_BYTES(numberOfBitsToSend) + 20};
 
 			// Just send the packet
 			DatagramPacket* pDatagramPacket = new DatagramPacket;
@@ -227,7 +227,7 @@ namespace keksnl
 
 	void CReliabilityLayer::ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
-		CBitStream bitStream{MAX_MTU_SIZE};
+		BitStream bitStream{MAX_MTU_SIZE};
 
 		auto curResendTime = curTime - resendTime;
 
@@ -339,7 +339,7 @@ namespace keksnl
 
 	void CReliabilityLayer::ProcessSend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
-		CBitStream bitStream{MAX_MTU_SIZE};
+		BitStream bitStream{MAX_MTU_SIZE};
 
 		// This fixes high memory consumption
 		//if(sendBuffer.capacity() > 2048)
@@ -572,7 +572,7 @@ namespace keksnl
 		{
 			if (remoteSystem.address == pPacket->remoteAddress)
 			{
-				CBitStream bitStream{(unsigned char*)pPacket->data, pPacket->bytesRead, true};
+				BitStream bitStream{(unsigned char*)pPacket->data, pPacket->bytesRead, true};
 
 				//DEBUG_LOG("Process %d bytes", pPacket->bytesRead);
 
@@ -744,7 +744,7 @@ namespace keksnl
 						if (packet.splitInfo.isEnd)
 						{
 							//
-							CBitStream bitStream{MAX_MTU_SIZE};
+							BitStream bitStream{MAX_MTU_SIZE};
 
 							std::sort(splitPacketBuffer[packet.splitInfo.packetIndex].begin(), splitPacketBuffer[packet.splitInfo.packetIndex].end(), [](const ReliablePacket &packet, const ReliablePacket &packet_) -> bool
 							{
@@ -910,7 +910,7 @@ namespace keksnl
 		}
 #endif
 
-		CBitStream bitStream{MAX_MTU_SIZE};
+		BitStream bitStream{MAX_MTU_SIZE};
 
 		int min = -1;
 		int max = 0;
@@ -985,7 +985,7 @@ namespace keksnl
 		dh.isACK = true;
 		dh.isNACK = false;
 
-		CBitStream ackBS{bitStream.Size() + dh.GetSizeToSend()};
+		BitStream ackBS{bitStream.Size() + dh.GetSizeToSend()};
 
 		// Serualize the datagram header
 		dh.Serialize(ackBS);
@@ -1151,7 +1151,7 @@ namespace keksnl
 			pDatagramPacket = nullptr;
 		}
 
-		CBitStream bitStream{MAX_MTU_SIZE};
+		BitStream bitStream{MAX_MTU_SIZE};
 
 		for (auto &splitPacket : splitPackets)
 		{

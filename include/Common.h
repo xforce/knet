@@ -203,7 +203,7 @@ typedef std::uint64_t uint64;
 #define DEBUG_LOG GetLogger("KeksNL")->debug
 #endif
 
-#include "CBitStream.h"
+#include "BitStream.h"
 
 #define SYNCED_CLASS_BODY(...)
 #define SYNCED_PROPERTY(...)
