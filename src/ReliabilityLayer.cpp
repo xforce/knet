@@ -987,7 +987,7 @@ namespace keksnl
 
 		BitStream ackBS{bitStream.Size() + dh.GetSizeToSend()};
 
-		// Serualize the datagram header
+		// Serialize the datagram header
 		dh.Serialize(ackBS);
 
 		// write the count of ack ranges which have been written
@@ -1012,6 +1012,7 @@ namespace keksnl
 			// Reset the firstUnsentAck to 0
 			firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 
+			// Only shrink when its really big
 			if(acknowledgements.capacity() > 65535)
 				acknowledgements.shrink_to_fit();
 		}
@@ -1169,8 +1170,10 @@ namespace keksnl
 
 			bitStream.Reset();
 
+			// Push the sent packet to the resend buffer
 			resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pSplitDatagramPacket)});
 
+			// Create a new datagram packet and set all the flags (split)
 			pSplitDatagramPacket = new DatagramPacket();
 
 			pSplitDatagramPacket->header.isACK = false;

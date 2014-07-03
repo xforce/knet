@@ -138,9 +138,40 @@ namespace keksnl
 
 			int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
-			DEBUG_LOG("Error code %d:  %s\n\n", errCode, errString);
+			DEBUG_LOG("Error code %d:  %s in [%s]\n\n", errCode, errString, __FUNCSIG__);
 
-			LocalFree(errString); // if you don't do this, you will get an
+			LocalFree(errString);
+#elif (defined(__GNUC__) || defined(__GCCXML__) ) && !defined(_WIN32)
+			closesocket__(rns2Socket);
+			switch (ret)
+			{
+			case EBADF:
+				DEBUG_LOG("bind(): sockfd is not a valid descriptor.\n"); break;
+			case ENOTSOCK:
+				DEBUG_LOG("bind(): Argument is a descriptor for a file, not a socket.\n"); break;
+			case EINVAL:
+				DEBUG_LOG("bind(): The addrlen is wrong, or the socket was not in the AF_UNIX family.\n"); break;
+			case EROFS:
+				DEBUG_LOG("bind(): The socket inode would reside on a read-only file system.\n"); break;
+			case EFAULT:
+				DEBUG_LOG("bind(): my_addr points outside the user's accessible address space.\n"); break;
+			case ENAMETOOLONG:
+				DEBUG_LOG("bind(): my_addr is too long.\n"); break;
+			case ENOENT:
+				DEBUG_LOG("bind(): The file does not exist.\n"); break;
+			case ENOMEM:
+				DEBUG_LOG("bind(): Insufficient kernel memory was available.\n"); break;
+			case ENOTDIR:
+				DEBUG_LOG("bind(): A component of the path prefix is not a directory.\n"); break;
+			case EACCES:
+				DEBUG_LOG("bind(): Search permission is denied on a component of the path prefix.\n"); break;
+
+			case ELOOP:
+				DEBUG_LOG("bind(): Too many symbolic links were encountered in resolving my_addr.\n"); break;
+
+			default:
+				DEBUG_LOG("Unknown bind() error %i.\n", ret); break;
+			}
 #endif
 			return false;
 		}
@@ -163,7 +194,6 @@ namespace keksnl
 
 	const SocketType CBerkleySocket::GetSocketType() const
 	{
-
 		return SocketType::Berkley;
 	}
 
@@ -189,7 +219,17 @@ namespace keksnl
 
 				if (recvLen <= 0)
 				{
-					// TODO: output detailed error
+#ifdef WIN32
+					int errCode = WSAGetLastError();
+
+					LPSTR errString = NULL;
+
+					int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR) &errString, 0, 0);
+
+					DEBUG_LOG("Error code %d:  %s in [%s]\n\n", errCode, errString, __FUNCSIG__);
+
+					LocalFree(errString);
+#endif
 					return false;
 				}
 

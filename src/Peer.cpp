@@ -103,7 +103,7 @@ namespace keksnl
 			//DEBUG_LOG("You are not connected");
 			return;
 		}
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE_ORDERED);
+		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
 	}
 
 
@@ -176,14 +176,6 @@ namespace keksnl
 				GetSocket()->Send(remoteAddress, bitStream.Data(), bitStream.Size());
 			else
 				DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
-
-			/*for (auto system : remoteSystems)
-			{
-				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
-				{
-					system->isConnected = true;
-				}
-			}*/
 
 			DEBUG_LOG("Send");
 		}

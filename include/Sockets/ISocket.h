@@ -53,7 +53,7 @@ namespace keksnl
 		int socketProtocol = 0;
 	};
 
-	enum SocketType : uint8
+	enum class SocketType : uint8
 	{
 		Berkley,
 	};
@@ -111,7 +111,7 @@ namespace keksnl
 			bytesRead = 0;
 		}
 
-		//InternalRecvPacket(InternalRecvPacket &&other) = default;
+		InternalRecvPacket(const InternalRecvPacket &other) = delete;
 		InternalRecvPacket(InternalRecvPacket &&other)
 		{
 			memmove(this->data, other.data, sizeof(this->data));

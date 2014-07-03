@@ -60,7 +60,7 @@ namespace keksnl
 		std::mutex bufferMutex;
 		std::queue<keksnl::InternalRecvPacket*> bufferedPacketQueue;
 
-		int maxConnections = 1;
+		uint32 maxConnections = 5;
 
 		bool isConnected = false;
 
