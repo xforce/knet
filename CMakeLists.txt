@@ -85,14 +85,14 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-ExternalProject_Add(KeksLogger
+ExternalProject_Add(kLogger
   GIT_REPOSITORY https://github.com/Crix-Dev/KeksLogger.git
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/vendor/KeksLogger
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/vendor/kLogger
   INSTALL_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
 )
 
-ExternalProject_Get_Property(KeksLogger source_dir)
+ExternalProject_Get_Property(kLogger source_dir)
 
 set(KEKS_LOGGER_SOURCE ${source_dir})
 
@@ -119,13 +119,13 @@ set(SOURCE_FILES ${CORE_SOURCE_FILES} ${SOCKET_SOURCE_FILES})
 
 add_executable(KeksNL ${SOURCE_FILES} ${HEADER_FILES})
 
-add_dependencies(KeksNL KeksLogger)
+add_dependencies(KeksNL kLogger)
 
 if(WIN32)
   target_link_libraries(KeksNL ws2_32)
 endif()
 
-ExternalProject_Get_Property(KeksLogger install_dir)
+ExternalProject_Get_Property(kLogger install_dir)
 
 get_filename_component(${install_dir} ${install_dir} ABSOLUTE)
 
@@ -135,9 +135,4 @@ else()
 set (LIB_PREFIX "lib")
 endif()
 
-# Link does not work the path i get is wrong/the install path given to ExternalProject_Add is not used, but i dont know why
-if(WIN32)
-target_link_libraries(KeksNL ${install_dir}/${LIB_PREFIX}KeksLogger${CMAKE_STATIC_LIBRARY_SUFFIX})
-else()
-target_link_libraries(KeksNL ${install_dir}/${LIB_PREFIX}KeksLogger${CMAKE_SHARED_LIBRARY_SUFFIX})
-endif()
+target_link_libraries(KeksNL ${install_dir}/${LIB_PREFIX}kLogger${CMAKE_STATIC_LIBRARY_SUFFIX})

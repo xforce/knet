@@ -446,7 +446,7 @@ namespace keksnl
 					if (pCurrentPacket == pReliableDatagramPacket)
 					{
 						// Add the packet to the resend buffer
-						resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pCurrentPacket)});
+						resendBuffer.push_back(std::move(std::make_pair(curTime, std::unique_ptr<DatagramPacket>(pCurrentPacket))));
 
 						pReliableDatagramPacket = new DatagramPacket();
 
