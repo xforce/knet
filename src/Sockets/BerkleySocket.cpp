@@ -36,7 +36,7 @@
 #include <fcntl.h>
 #endif
 
-namespace keksnl
+namespace knet
 {
 #ifdef WIN32
 	WSADATA wsaData;

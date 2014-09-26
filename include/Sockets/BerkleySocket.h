@@ -34,7 +34,7 @@
 
 #include "ISocket.h"
 
-namespace keksnl
+namespace knet
 {
 
 	class CBerkleySocket : public ISocket

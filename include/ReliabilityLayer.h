@@ -39,7 +39,7 @@
 #include <queue>
 #include <bitset>
 
-namespace keksnl
+namespace knet
 {
 	enum class ReliabilityEvents : uint8
 	{

@@ -29,8 +29,8 @@
 */
 
 // TODO: change include guard to say its logger to prevent guard mess
-#ifndef KeksNL_Common_h
-#define KeksNL_Common_h
+#ifndef kNet_Common_h
+#define kNet_Common_h
 
 #define DEBUG_ACKS 1
 
@@ -194,13 +194,17 @@ typedef std::uint64_t uint64;
 #endif  // KEKSNL_EXPORT
 #endif
 
+#if ENABLE_LOGGER
 #include <ILogger.h>
 
 #if _DEBUG
-//#define DEBUG_LOG(x) GetLogger("KeksNL")->debug(x);
-#define DEBUG_LOG GetLogger("KeksNL")->debug
+//#define DEBUG_LOG(x) GetLogger("kNet")->debug(x);
+#define DEBUG_LOG GetLogger("kNet")->debug
 #else
-#define DEBUG_LOG GetLogger("KeksNL")->debug
+#define DEBUG_LOG GetLogger("kNet")->debug
+#endif
+#else
+#define DEBUG_LOG(...) printf(__VA_ARGS__); printf("\n");
 #endif
 
 #include "BitStream.h"
@@ -209,4 +213,4 @@ typedef std::uint64_t uint64;
 #define SYNCED_PROPERTY(...)
 #define SYNCED_PROPERTY_FUNC(...)
 
-#endif // KeksNL_Common_h
+#endif // kNet_Common_h

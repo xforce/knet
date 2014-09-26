@@ -30,7 +30,7 @@
 
 #include <ReliabilityLayer.h>
 
-namespace keksnl
+namespace knet
 {
 	static const std::chrono::milliseconds resendTime = std::chrono::milliseconds(10000);
 

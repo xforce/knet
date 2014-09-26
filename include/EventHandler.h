@@ -64,7 +64,7 @@ namespace std
 	{ };
 }
 
-namespace keksnl
+namespace knet
 {
 	class Event
 	{

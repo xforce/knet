@@ -32,7 +32,7 @@
 
 #include <BitStream.h>
 
-namespace keksnl
+namespace knet
 {
 	Peer::Peer()
 	{

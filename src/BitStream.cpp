@@ -30,7 +30,7 @@
 
 #include "BitStream.h"
 
-namespace keksnl
+namespace knet
 {
 
 	BitStream::BitStream()

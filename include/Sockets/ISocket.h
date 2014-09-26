@@ -40,7 +40,7 @@
 	TODO: clean this file up
 */
 
-namespace keksnl
+namespace knet
 {
 	/* Some helper types */
 #pragma region Socket_Helper_Types

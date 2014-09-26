@@ -7,24 +7,28 @@
 #include "ReliabilityLayer.h"
 #include "Peer.h"
 
+#include <climits>
+#include <list>
+#include <chrono>
+
 std::string msg1 = "Keks count";
 int count = 0;
 
-keksnl::Peer *peer1;
-keksnl::Peer *peer2;
-keksnl::Peer *peer3;
+knet::Peer *peer1;
+knet::Peer *peer2;
+knet::Peer *peer3;
 
 int countPerSec = 0;
 
 std::chrono::high_resolution_clock::time_point start;
 
-bool ahaskdj(keksnl::InternalRecvPacket*)
+bool ahaskdj(knet::InternalRecvPacket*)
 {
 	return true;
 }
 
 
-bool PublicReceiveHandler(keksnl::InternalRecvPacket* pPacket)
+bool PublicReceiveHandler(knet::InternalRecvPacket* pPacket)
 {
 
 	DEBUG_LOG("Public handler");
@@ -33,18 +37,6 @@ bool PublicReceiveHandler(keksnl::InternalRecvPacket* pPacket)
 
 double packetsPerSec = 0;
 
-#include <climits>
-#include <list>
-
-class PrintLogHander : public ILogHandler
-{
-	virtual void OnLog(ILogger * pLogger, LogLevel level, const char* szMsg)
-	{ 
-		printf("%s\n", szMsg);
-	};
-};
-
-#include <chrono>
 
 int main(int argc, char** argv)
 {
@@ -52,8 +44,14 @@ int main(int argc, char** argv)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-	GetLogger("KeksNL")->AddHandler(new PrintLogHander);
-	DEBUG_LOG("%d", sizeof(keksnl::OrderedInfo));
+#if ENABLE_LOGGER
+	GetLogger("kNet")->AddHandler([](ILogger * pLogger, LogLevel level, const char* szMsg)
+	{
+		printf("%s\n", szMsg);
+	});
+#endif
+
+	DEBUG_LOG("%d", sizeof(knet::OrderedInfo));
 
 	if(argc > 1)
 	{
@@ -62,7 +60,7 @@ int main(int argc, char** argv)
 			// Start the client
 			const char *szAddress = argv[2];
 			unsigned short usPort = atoi(argv[3]);
-			keksnl::Peer * pPeer = new keksnl::Peer();
+			knet::Peer * pPeer = new knet::Peer();
 			pPeer->Start(0, usPort + 1);
 			pPeer->Connect(szAddress, usPort);
 
@@ -77,7 +75,7 @@ int main(int argc, char** argv)
 
 			// Get the listening port
 			unsigned short usPort = atoi(argv[2]);
-			keksnl::Peer * pPeer = new keksnl::Peer();
+			knet::Peer * pPeer = new knet::Peer();
 
 			// Start the server
 			pPeer->Start(0, usPort);
@@ -139,7 +137,7 @@ int main(int argc, char** argv)
 	if(acknowledgements[0] == 1)
 		DEBUG_LOG("0 1 on {%p}", 0);
 
-	keksnl::BitStream bitStream;
+	knet::BitStream bitStream;
 
 	int min = -1;
 	int max = 0;
@@ -194,7 +192,7 @@ int main(int argc, char** argv)
 
 	acknowledgements.clear();
 
-	keksnl::BitStream out;
+	knet::BitStream out;
 	out.Write(writeCount);
 	out.Write(bitStream.Data(), bitStream.Size());
 
@@ -262,9 +260,9 @@ int main(int argc, char** argv)
 
 	DEBUG_LOG("Startup [performance]");
 
-	peer1 = new keksnl::Peer();
-	peer2 = new keksnl::Peer();
-	peer3 = new keksnl::Peer();
+	peer1 = new knet::Peer();
+	peer2 = new knet::Peer();
+	peer3 = new knet::Peer();
 
 	/*DEBUG_LOG("Peer1 == {%p}", peer1);
 	DEBUG_LOG("Peer2 == {%p}", peer2);
@@ -315,7 +313,7 @@ int main(int argc, char** argv)
 
 
 #pragma region Old BitStream Test Code
-	//keksnl::BitStream bit;
+	//knet::BitStream bit;
 	//const char  *keks = "Hallo wie gehts!";
 	//bit.Write((unsigned char*)keks, strlen("Hallo wie gehts!") + 1);
 	//bit.Write((unsigned char*)keks, strlen("Hallo wie gehts!") + 1);

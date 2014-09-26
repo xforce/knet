@@ -37,7 +37,7 @@
 
 #define BITSTREAM_STACK_SIZE 256
 
-namespace keksnl
+namespace knet
 {
 	class BitStream
 	{

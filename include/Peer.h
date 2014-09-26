@@ -39,26 +39,26 @@
 
 
 
-namespace keksnl
+namespace knet
 {
 	// TODO: clean up
 	class Peer
 	{
 	private:
-		keksnl::ISocket * pSocket = nullptr;
+		knet::ISocket * pSocket = nullptr;
 
 		struct System
 		{
-			keksnl::CReliabilityLayer reliabilityLayer;
+			knet::CReliabilityLayer reliabilityLayer;
 			bool isConnected;
 		};
 
-		keksnl::CReliabilityLayer reliabilityLayer;
+		knet::CReliabilityLayer reliabilityLayer;
 
 		std::vector<System*> remoteSystems;
 
 		std::mutex bufferMutex;
-		std::queue<keksnl::InternalRecvPacket*> bufferedPacketQueue;
+		std::queue<knet::InternalRecvPacket*> bufferedPacketQueue;
 
 		uint32 maxConnections = 5;
 
@@ -68,14 +68,14 @@ namespace keksnl
 		Peer();
 		~Peer();
 
-		keksnl::ISocket * GetSocket()
+		knet::ISocket * GetSocket()
 		{
 			return pSocket;
 		}
 
 		void Start(const char *szAddress, unsigned short usPort)
 		{
-			keksnl::SocketBindArguments bi;
+			knet::SocketBindArguments bi;
 
 			bi.usPort = usPort;
 			bi.szHostAddress = szAddress;
@@ -114,10 +114,10 @@ namespace keksnl
 
 	private:
 		/* Event handlers */
-		bool OnReceive(keksnl::InternalRecvPacket* pPacket);
-		bool HandleDisconnect(keksnl::SocketAddress address, keksnl::DisconnectReason reason);
-		bool HandleNewConnection(keksnl::InternalRecvPacket * pPacket);
-		bool HandlePacket(keksnl::ReliablePacket &packet, keksnl::SocketAddress& remoteAddress);
+		bool OnReceive(knet::InternalRecvPacket* pPacket);
+		bool HandleDisconnect(knet::SocketAddress address, knet::DisconnectReason reason);
+		bool HandleNewConnection(knet::InternalRecvPacket * pPacket);
+		bool HandlePacket(knet::ReliablePacket &packet, knet::SocketAddress& remoteAddress);
 	
 	};
 

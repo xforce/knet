@@ -32,7 +32,7 @@
 
 #include "Common.h"
 
-namespace keksnl
+namespace knet
 {
 	class SocketAddress
 	{
