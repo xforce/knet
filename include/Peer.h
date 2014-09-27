@@ -49,11 +49,11 @@ namespace knet
 
 		struct System
 		{
-			knet::CReliabilityLayer reliabilityLayer;
+			knet::ReliabilityLayer reliabilityLayer;
 			bool isConnected;
 		};
 
-		knet::CReliabilityLayer reliabilityLayer;
+		knet::ReliabilityLayer reliabilityLayer;
 
 		std::vector<System*> remoteSystems;
 

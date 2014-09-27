@@ -34,7 +34,7 @@ namespace knet
 {
 	static const std::chrono::milliseconds resendTime = std::chrono::milliseconds(10000);
 
-	CReliabilityLayer::CReliabilityLayer(ISocket * pSocket)
+	ReliabilityLayer::ReliabilityLayer(ISocket * pSocket)
 		: m_pSocket(pSocket)
 	{
 
@@ -55,12 +55,12 @@ namespace knet
 		resendBuffer.reserve(512);
 	}
 
-	CReliabilityLayer::~CReliabilityLayer()
+	ReliabilityLayer::~ReliabilityLayer()
 	{
 		
 	}
 
-	bool CReliabilityLayer::OnReceive(InternalRecvPacket *packet)
+	bool ReliabilityLayer::OnReceive(InternalRecvPacket *packet)
 	{
 		if (eventHandler)
 		{
@@ -77,7 +77,7 @@ namespace knet
 		return true;
 	}
 
-	InternalRecvPacket* CReliabilityLayer::PopBufferedPacket()
+	InternalRecvPacket* ReliabilityLayer::PopBufferedPacket()
 	{
 		std::lock_guard<std::mutex> m{bufferMutex};
 
@@ -91,17 +91,17 @@ namespace knet
 		return packet;
 	}
 
-	void CReliabilityLayer::SetTimeout(const std::chrono::milliseconds &time)
+	void ReliabilityLayer::SetTimeout(const std::chrono::milliseconds &time)
 	{
 		m_msTimeout = time;
 	}
 
-	const std::chrono::milliseconds& CReliabilityLayer::GetTimeout()
+	const std::chrono::milliseconds& ReliabilityLayer::GetTimeout()
 	{
 		return m_msTimeout;
 	}
 
-	void CReliabilityLayer::Send(char *data, size_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability)
+	void ReliabilityLayer::Send(char *data, size_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability)
 	{
 		if (priority == PacketPriority::IMMEDIATE)
 		{
@@ -167,7 +167,7 @@ namespace knet
 		}
 	}
 
-	void CReliabilityLayer::Process()
+	void ReliabilityLayer::Process()
 	{
 		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
@@ -225,7 +225,7 @@ namespace knet
 #pragma endregion
 	}
 
-	void CReliabilityLayer::ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	void ReliabilityLayer::ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -255,7 +255,7 @@ namespace knet
 		}
 	}
 
-	void CReliabilityLayer::ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	void ReliabilityLayer::ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
 		int i = 0;
 		uint16 lastIndex = 0;
@@ -337,7 +337,7 @@ namespace knet
 		}
 	}
 
-	void CReliabilityLayer::ProcessSend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	void ReliabilityLayer::ProcessSend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -551,7 +551,7 @@ namespace knet
 		}
 	}
 
-	void CReliabilityLayer::RemoveRemote(const SocketAddress& remoteAddress)
+	void ReliabilityLayer::RemoveRemote(const SocketAddress& remoteAddress)
 	{
 		for(const auto& remote : remoteList)
 		{
@@ -566,7 +566,7 @@ namespace knet
 		}
 	}
 
-	bool CReliabilityLayer::ProcessPacket(InternalRecvPacket *pPacket, std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	bool ReliabilityLayer::ProcessPacket(InternalRecvPacket *pPacket, std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
 		for (auto &remoteSystem : remoteList)
 		{
@@ -844,12 +844,12 @@ namespace knet
 		return true;
 	}
 
-	ISocket * CReliabilityLayer::GetSocket()
+	ISocket * ReliabilityLayer::GetSocket()
 	{
 		return m_pSocket;
 	}
 
-	void CReliabilityLayer::SetSocket(ISocket * pSocket)
+	void ReliabilityLayer::SetSocket(ISocket * pSocket)
 	{
 		if (m_pSocket == pSocket)
 			return;
@@ -857,17 +857,17 @@ namespace knet
 		m_pSocket = pSocket;
 	}
 
-	const SocketAddress & CReliabilityLayer::GetRemoteAddress()
+	const SocketAddress & ReliabilityLayer::GetRemoteAddress()
 	{
 		return m_RemoteSocketAddress;
 	}
 
-	void CReliabilityLayer::SetRemoteAddress(SocketAddress &socketAddress)
+	void ReliabilityLayer::SetRemoteAddress(SocketAddress &socketAddress)
 	{
 		m_RemoteSocketAddress = socketAddress;
 	}
 
-	void CReliabilityLayer::SendACKs()
+	void ReliabilityLayer::SendACKs()
 	{
 		if (acknowledgements.size() == 0)
 			return;
@@ -1018,18 +1018,18 @@ namespace knet
 		}
 	}
 
-	void CReliabilityLayer::SetOrderingChannel(uint8 ucChannel)
+	void ReliabilityLayer::SetOrderingChannel(uint8 ucChannel)
 	{
 
 		
 	}
 
-	uint8 CReliabilityLayer::GetOrderingChannel()
+	uint8 ReliabilityLayer::GetOrderingChannel()
 	{
 		return uint8();
 	}
 
-	bool CReliabilityLayer::SplitPacket(ReliablePacket &packet, DatagramPacket ** ppDatagramPacket)
+	bool ReliabilityLayer::SplitPacket(ReliablePacket &packet, DatagramPacket ** ppDatagramPacket)
 	{
 		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 

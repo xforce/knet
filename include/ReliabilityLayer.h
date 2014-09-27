@@ -82,7 +82,7 @@ namespace knet
 		MAX,
 	};
 
-	class CFlowControlHelper
+	class FlowControlHelper
 	{
 	private:
 		int32 sequenceNumber = 0;
@@ -378,7 +378,7 @@ namespace knet
 	/*!
 	  Internal class
 	*/
-	class CReliabilityLayer
+	class ReliabilityLayer
 	{
 	public:
 
@@ -400,7 +400,7 @@ namespace knet
 
 		uint8 orderingChannel = 0;
 
-		CFlowControlHelper flowControlHelper;
+		FlowControlHelper flowControlHelper;
 
 		EventHandler<ReliabilityEvents> eventHandler;
 
@@ -461,8 +461,8 @@ namespace knet
 		bool SplitPacket(ReliablePacket & packet, DatagramPacket ** pDatagramPacket);
 
 	public:
-		CReliabilityLayer(ISocket * pSocket = nullptr);
-		virtual ~CReliabilityLayer();
+		ReliabilityLayer(ISocket * pSocket = nullptr);
+		virtual ~ReliabilityLayer();
 
 		void Send(char *data, size_t numberOfBitsToSend, PacketPriority priority = PacketPriority::MEDIUM, PacketReliability reliability = PacketReliability::RELIABLE);
 
