@@ -37,8 +37,6 @@ namespace knet
 	ReliabilityLayer::ReliabilityLayer(ISocket * pSocket)
 		: m_pSocket(pSocket)
 	{
-
-
 		firstUnsentAck = firstUnsentAck.min(); //std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 		lastReceiveFromRemote = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
 
@@ -96,12 +94,12 @@ namespace knet
 		m_msTimeout = time;
 	}
 
-	const std::chrono::milliseconds& ReliabilityLayer::GetTimeout()
+	const std::chrono::milliseconds& ReliabilityLayer::GetTimeout() const
 	{
 		return m_msTimeout;
 	}
 
-	void ReliabilityLayer::Send(char *data, size_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability)
+	void ReliabilityLayer::Send(const char *data, size_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability)
 	{
 		if (priority == PacketPriority::IMMEDIATE)
 		{
@@ -576,6 +574,8 @@ namespace knet
 
 				//DEBUG_LOG("Process %d bytes", pPacket->bytesRead);
 
+				// TODO: split this in functions
+
 				// Handle Packet in Reliability Layer
 				DatagramPacket dPacket;
 				dPacket.Deserialze(bitStream);
@@ -583,8 +583,6 @@ namespace knet
 				if (dPacket.header.isACK)
 				{
 					// Handle ACK Packet
-					
-
 					uint32 count = 0;
 					bitStream.Read(count);
 
@@ -700,7 +698,6 @@ namespace knet
 					// Now process the packet
 
 #if DEBUG_ACKS
-#if 0
 					for (auto i : acknowledgements)
 					{
 						if (dPacket.header.sequenceNumber == i)
@@ -710,9 +707,6 @@ namespace knet
 						}
 					}
 #endif
-#endif
-
-					//DEBUG_LOG("Got packet %d", dh.sequenceNumber);
 
 					if (dPacket.header.isReliable)
 						acknowledgements.push_back(dPacket.header.sequenceNumber);
@@ -844,7 +838,7 @@ namespace knet
 		return true;
 	}
 
-	ISocket * ReliabilityLayer::GetSocket()
+	ISocket * ReliabilityLayer::GetSocket() const
 	{
 		return m_pSocket;
 	}
@@ -857,7 +851,7 @@ namespace knet
 		m_pSocket = pSocket;
 	}
 
-	const SocketAddress & ReliabilityLayer::GetRemoteAddress()
+	const SocketAddress & ReliabilityLayer::GetRemoteAddress() const
 	{
 		return m_RemoteSocketAddress;
 	}
@@ -1020,13 +1014,12 @@ namespace knet
 
 	void ReliabilityLayer::SetOrderingChannel(uint8 ucChannel)
 	{
-
-		
+		orderingChannel = ucChannel;
 	}
 
-	uint8 ReliabilityLayer::GetOrderingChannel()
+	uint8 ReliabilityLayer::GetOrderingChannel() const
 	{
-		return uint8();
+		return orderingChannel;
 	}
 
 	bool ReliabilityLayer::SplitPacket(ReliablePacket &packet, DatagramPacket ** ppDatagramPacket)

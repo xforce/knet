@@ -60,24 +60,26 @@ namespace knet
 		CONNECTION_REQUEST,
 		CONNECTION_ACCEPTED,
 		CONNECTION_REFUSED,
+		INTERNAL_PING,
 	};
 
 	enum PacketPriority : uint8
 	{
-		/* Will skip send buffer, so you have the control when this packet is sent*/
 		LOW,
 		MEDIUM,
 		HIGH,
-		IMMEDIATE,
+		IMMEDIATE /* Will skip send buffer, and will be sent immediatly */,
 		MAX,
 	};
 
 	enum class PacketReliability : uint8
 	{
 		UNRELIABLE = 0,
+		UNRELIABLE_SEQUENCED,
 
 		RELIABLE,
 		RELIABLE_ORDERED,
+		RELIABLE_SEQUENCED,
 
 		MAX,
 	};
@@ -199,7 +201,7 @@ namespace knet
 
 		ReliablePacket(const ReliablePacket &other) = delete;
 
-		char * Data()
+		const char * Data()
 		{
 			return pData.get();
 		}
@@ -209,12 +211,12 @@ namespace knet
 			return dataLength;
 		}
 
-		ReliablePacket(char * data, ::size_t length)
+		ReliablePacket(const char * data, ::size_t length)
 		{
 			
 			pData = std::unique_ptr<char>{new char[length]};
 			memcpy(pData.get(), data, length);
-			dataLength = length;
+			dataLength = static_cast<uint16>(length);
 		}
 
 		ReliablePacket(ReliablePacket &&other)
@@ -464,7 +466,7 @@ namespace knet
 		ReliabilityLayer(ISocket * pSocket = nullptr);
 		virtual ~ReliabilityLayer();
 
-		void Send(char *data, size_t numberOfBitsToSend, PacketPriority priority = PacketPriority::MEDIUM, PacketReliability reliability = PacketReliability::RELIABLE);
+		void Send(const char *data, size_t numberOfBitsToSend, PacketPriority priority = PacketPriority::MEDIUM, PacketReliability reliability = PacketReliability::RELIABLE);
 
 		void Process();
 
@@ -489,7 +491,7 @@ namespace knet
 		\return The current channel on which the remote reliability layer will order incoming ordered packets
 		Packets sent before may used a different channel
 		*/
-		uint8 GetOrderingChannel();
+		uint8 GetOrderingChannel() const;
 
 		//! Sets the channel used to order sent packets
 		/*!
@@ -502,7 +504,7 @@ namespace knet
 		/*!
 		\return Socket used to send packets
 		*/
-		ISocket * GetSocket();
+		ISocket * GetSocket() const;
 
 		//! Sets the socket used to send packets
 		/*!
@@ -515,7 +517,7 @@ namespace knet
 		/*!
 		\return The remote address is the connection endpoint to which the packets will be send
 		*/
-		const SocketAddress & GetRemoteAddress();
+		const SocketAddress & GetRemoteAddress() const;
 
 		//! Sets the remote Socket address which is the connection endpoint
 		/*!
@@ -534,7 +536,7 @@ namespace knet
 		/*!
 		\return The time after a connection will be closed if no data was received
 		*/
-		const std::chrono::milliseconds& GetTimeout();
+		const std::chrono::milliseconds& GetTimeout() const;
 
 	};
 

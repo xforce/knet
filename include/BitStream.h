@@ -61,6 +61,8 @@ namespace knet
 		BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData);
 		virtual ~BitStream();
 
+		// TODO: add aligntobyteboundary method
+
 		void Reset()
 		{
 			readOffset = 0;
@@ -95,24 +97,8 @@ namespace knet
 		void Write1();
 		void Write0();
 
-		inline bool ReadBit()
-		{
-			bool result = (pData[readOffset >> 3] & (0x80 >> (readOffset & 7))) != 0;
-			readOffset++;
-			return result;
-		}
-
 		bool WriteBits(const unsigned char *data, size_t  numberOfBits);
-		bool Write(const unsigned char *data, size_t size);
-		bool Write(const char* data, size_t size);
-		bool Write(const std::string &str);
-		//bool Write(size_t value);
-		//bool Write(int value);
-		//bool Write(bool value);
-		//bool Write(long value);
-		//bool Write(unsigned long value);
-		//bool Write(short value);
-		//bool Write(unsigned short value);
+
 
 		char * Data()
 		{
@@ -136,7 +122,19 @@ namespace knet
 			return true;
 		}
 
+		bool Write(const unsigned char *data, size_t size);
+		bool Write(const char* data, size_t size);
+		bool Write(const std::string &str);
 		
+
+		/* Read functions */
+
+		inline bool ReadBit()
+		{
+			bool result = (pData[readOffset >> 3] & (0x80 >> (readOffset & 7))) != 0;
+			readOffset++;
+			return result;
+		}
 
 		bool ReadBits(char *pData, size_t  numberOfBits);
 		bool Read(char *pData, size_t size);

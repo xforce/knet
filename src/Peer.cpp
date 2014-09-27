@@ -98,12 +98,12 @@ namespace knet
 
 	void Peer::Send(System &peer, const char * data, size_t len, bool im)
 	{
-		if (!isConnected)
+		if (isConnected)
 		{
-			//DEBUG_LOG("You are not connected");
-			return;
+			peer.reliabilityLayer.Send((char*) data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
 		}
-		peer.reliabilityLayer.Send((char*)data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
+		else
+			DEBUG_LOG("Not connected");
 	}
 
 
@@ -147,11 +147,6 @@ namespace knet
 
 	bool Peer::HandlePacket(ReliablePacket &packet, SocketAddress& remoteAddress)
 	{
-		//std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-		static int count = 0;
-		static std::string msg1 = "";
-
 		auto pData = packet.Data();
 
 		if ((MessageID)pData[0] == MessageID::CONNECTION_REQUEST)
@@ -183,8 +178,9 @@ namespace knet
 		{
 			DEBUG_LOG("Remote accepted our connection");
 
-			isConnected = true;
+			this->isConnected = true;
 
+			// Makr the remote as connected
 			for (auto system : remoteSystems)
 			{
 				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
@@ -193,55 +189,15 @@ namespace knet
 					break;
 				}
 			}
-
-			//countPerSec++;
-			count++;
-			char keks[100] = {0};
-			//sprintf_s(keks, "Keks count %d", count++);
-			msg1 = "Keks count %d";
-			//std::chrono::milliseconds dura(2000);
-			//std::this_thread::sleep_for(dura);
-
-			for (auto system : remoteSystems)
-			{
-				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
-				{
-DEBUG_LOG("Send back");
-
-					// Send back
-					//Send(*system, msg1.c_str(), msg1.size() + 1, false);
-
-					break;
-				}
-			}
 		}
 		else if ((MessageID)pData[0] == MessageID::CONNECTION_REFUSED)
 		{
-			isConnected = false;
+			this->isConnected = false;
 			DEBUG_LOG("The remote refused our connection request");
 		}
 		else
 		{
-			return false;
-
-			//countPerSec++;
-			count++;
-			char keks[100] = {0};
-			//sprintf_s(keks, "Keks count %d", count++);
-			msg1 = "Keks count %d";
-			//std::chrono::milliseconds dura(2000);
-			//std::this_thread::sleep_for(dura);
-
-			for (auto system : remoteSystems)
-			{
-				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
-				{
-					// Send back
-					//Send(*system, msg1.c_str(), msg1.size() + 1);
-
-					break;
-				}
-			}
+			
 		}
 
 		return false;
@@ -251,6 +207,7 @@ DEBUG_LOG("Send back");
 	{
 		if (remoteSystems.size() >= maxConnections)
 		{
+			/* We dont want to create a new system, so we have to build the packet manually :D */
 			BitStream bitStream{MAX_MTU_SIZE};
 
 			DatagramHeader dh;
