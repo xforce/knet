@@ -199,12 +199,12 @@ typedef std::uint64_t uint64;
 
 #if _DEBUG
 //#define DEBUG_LOG(x) GetLogger("kNet")->debug(x);
-#define DEBUG_LOG GetLogger("kNet")->debug
+#define DEBUG_LOG(...) GetLogger("kNet")->debug(__VA_ARGS__);
 #else
-#define DEBUG_LOG GetLogger("kNet")->debug
+#define DEBUG_LOG(...)
 #endif
 #else
-#define DEBUG_LOG(...) printf(__VA_ARGS__); printf("\n");
+#define DEBUG_LOG(...) { printf(__VA_ARGS__); printf("\n"); }
 #endif
 
 #include "BitStream.h"

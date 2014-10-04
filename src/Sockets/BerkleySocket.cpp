@@ -86,7 +86,7 @@ namespace knet
 
 	bool CBerkleySocket::Bind(const SocketBindArguments &bindArgs)
 	{
-		// TODO: make IPv6
+		// TODO: add IPv6 support
 
 
 		memset(&m_BoundAddress.address.addr4, 0, sizeof(sockaddr_in));

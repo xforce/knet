@@ -40,9 +40,6 @@
     'asan%': 0,
     'tsan%': 0,
     'visibility%': 'hidden',
-    'v8_enable_backtrace%': 0,
-    'v8_enable_i18n_support': 0,
-    'v8_deprecation_warnings': 1,
     'msvs_multi_core_compile%': '1',
     'mac_deployment_target%': '10.5',
     'variables': {
@@ -55,7 +52,7 @@
               # Anything else gets passed through, which probably won't work
               # very well; such hosts should pass an explicit target_arch
               # to gyp.
-              'host_arch%': '<!pymod_do_main(detect_v8_host_arch)',
+              'host_arch%': '<!pymod_do_main(detect_host_arch)',
             }, {
               # OS!="linux" and OS!="freebsd" and OS!="openbsd" and
               # OS!="netbsd" and OS!="mac"
@@ -68,42 +65,33 @@
       },
       'host_arch%': '<(host_arch)',
       'target_arch%': '<(target_arch)',
-      'v8_target_arch%': '<(target_arch)',
+      'knet_target_arch%': '<(target_arch)',
     },
     'host_arch%': '<(host_arch)',
     'target_arch%': '<(target_arch)',
-    'v8_target_arch%': '<(v8_target_arch)',
+    'knet_target_arch%': '<(knet_target_arch)',
     'werror%': '-Werror',
 
-    # .gyp files or targets should set v8_code to 1 if they build V8 specific
-    # code, as opposed to external code.  This variable is used to control such
-    # things as the set of warnings to enable, and whether warnings are treated
-    # as errors.
-    'v8_code%': 0,
-
-    # Speeds up Debug builds:
+        # Speeds up Debug builds:
     # 0 - Compiler optimizations off (debuggable) (default). This may
     #     be 5x slower than Release (or worse).
     # 1 - Turn on compiler optimizations. This may be hard or impossible to
     #     debug. This may still be 2x slower than Release (or worse).
     # 2 - Turn on optimizations, and also #undef DEBUG / #define NDEBUG
-    #     (but leave V8_ENABLE_CHECKS and most other assertions enabled.
-    #     This may cause some v8 tests to fail in the Debug configuration.
+    #     (but leave KNET_ENABLE_CHECKS and most other assertions enabled.
+    #     This may cause some knet tests to fail in the Debug configuration.
     #     This roughly matches the performance of a Release build and can
     #     be used by embedders that need to build their own code as debug
-    #     but don't want or need a debug version of V8. This should produce
+    #     but don't want or need a debug version of kNet. This should produce
     #     near-release speeds.
-    'v8_optimized_debug%': 0,
-
-    # Relative path to icu.gyp from this file.
-    'icu_gyp_path': '../third_party/icu/icu.gyp',
+    'knet_optimized_debug%': 0,
 
     'conditions': [
-      ['(v8_target_arch=="arm" and host_arch!="arm") or \
-        (v8_target_arch=="arm64" and host_arch!="arm64") or \
-        (v8_target_arch=="mipsel" and host_arch!="mipsel") or \
-        (v8_target_arch=="mips64el" and host_arch!="mips64el") or \
-        (v8_target_arch=="x64" and host_arch!="x64") or \
+      ['(knet_target_arch=="arm" and host_arch!="arm") or \
+        (knet_target_arch=="arm64" and host_arch!="arm64") or \
+        (knet_target_arch=="mipsel" and host_arch!="mipsel") or \
+        (knet_target_arch=="mips64el" and host_arch!="mips64el") or \
+        (knet_target_arch=="x64" and host_arch!="x64") or \
         (OS=="android" or OS=="qnx")', {
         'want_separate_host_toolset': 1,
       }, {
@@ -113,12 +101,6 @@
         'os_posix%': 0,
       }, {
         'os_posix%': 1,
-      }],
-      ['(v8_target_arch=="ia32" or v8_target_arch=="x64" or v8_target_arch=="x87") and \
-        (OS=="linux" or OS=="mac")', {
-        'v8_enable_gdbjit%': 1,
-      }, {
-        'v8_enable_gdbjit%': 0,
       }],
       ['OS=="mac"', {
         'clang%': 1,
@@ -133,9 +115,6 @@
     'arm_thumb': 'default',
   },
   'target_defaults': {
-    'variables': {
-      'v8_code%': '<(v8_code)',
-    },
     'default_configuration': 'Debug',
     'configurations': {
       'DebugBaseCommon': {
@@ -151,32 +130,6 @@
         # Xcode insists on this empty entry.
       },
     },
-    'target_conditions': [
-      ['v8_code == 0', {
-        'defines!': [
-          'DEBUG',
-        ],
-        'conditions': [
-          ['os_posix == 1 and OS != "mac"', {
-            'cflags!': [
-              '-Werror',
-            ],
-          }],
-          ['OS == "mac"', {
-            'xcode_settings': {
-              'GCC_TREAT_WARNINGS_AS_ERRORS': 'NO',    # -Werror
-            },
-          }],
-          ['OS == "win"', {
-            'msvs_settings': {
-              'VCCLCompilerTool': {
-                'WarnAsError': 'false',
-              },
-            },
-          }],
-        ],
-      }],
-    ],
   },
   'conditions': [
     ['asan==1', {
@@ -337,14 +290,6 @@
             #   1 == /SUBSYSTEM:CONSOLE
             #   2 == /SUBSYSTEM:WINDOWS
             'SubSystem': '1',
-
-            'conditions': [
-              ['v8_enable_i18n_support==1', {
-                'AdditionalDependencies': [
-                  'advapi32.lib',
-                ],
-              }],
-            ],
           },
         },
       },
