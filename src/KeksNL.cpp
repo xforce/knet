@@ -268,9 +268,9 @@ int main(int argc, char** argv)
 	DEBUG_LOG("Peer2 == {%p}", peer2);
 	DEBUG_LOG("Peer3 == {%p}", peer3);*/
 
-	peer1->Start(0, 9999);
-	peer2->Start(0, 10000);
-	peer3->Start(0, 10001);
+	peer1->Start("", 9999);
+	peer2->Start("", 10000);
+	peer3->Start("", 10001);
 
 	peer1->Connect("127.0.0.1", 10000);
 	peer1->Connect("127.0.0.1", 10001);

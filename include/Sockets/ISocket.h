@@ -47,7 +47,7 @@ namespace knet
 	struct SocketBindArguments
 	{ 
 		unsigned short usPort = 0;
-		const char* szHostAddress = 0;
+		std::string szHostAddress = "";
 		short addressFamily = AF_INET;
 		int socketType = SOCK_DGRAM;
 		int socketProtocol = 0;
@@ -99,7 +99,7 @@ namespace knet
 		int bytesRead;
 		SocketAddress remoteAddress;
 		std::chrono::steady_clock::time_point timeStamp;
-		ISocket * pSocket = nullptr;
+		std::shared_ptr<ISocket> pSocket = nullptr;
 
 		InternalRecvPacket()
 		{

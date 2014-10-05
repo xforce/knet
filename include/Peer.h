@@ -45,7 +45,7 @@ namespace knet
 	class Peer
 	{
 	private:
-		knet::ISocket * pSocket = nullptr;
+		std::shared_ptr<knet::ISocket> pSocket = nullptr;
 
 		struct System
 		{
@@ -55,7 +55,7 @@ namespace knet
 
 		knet::ReliabilityLayer reliabilityLayer;
 
-		std::vector<System*> remoteSystems;
+		std::vector<std::shared_ptr<System>> remoteSystems;
 
 		std::mutex bufferMutex;
 		std::queue<knet::InternalRecvPacket*> bufferedPacketQueue;
@@ -68,49 +68,15 @@ namespace knet
 		Peer();
 		~Peer();
 
-		knet::ISocket * GetSocket()
-		{
-			return pSocket;
-		}
+		std::shared_ptr<knet::ISocket> GetSocket();
 
-		void Start(const char *szAddress, unsigned short usPort)
-		{
-			knet::SocketBindArguments bi;
-
-			bi.usPort = usPort;
-			bi.szHostAddress = szAddress;
-
-			pSocket->Bind(bi);
-			pSocket->StartReceiving();
-		}
+		void Start(const std::string &strAddress, uint16 usPort);
 
 		void Send(System &peer, const char * data, size_t len, bool im = false);
 
-		void Connect(const char * szRemoteAddress, unsigned short usPort);
+		void Connect(const std::string &strRemoteAddress, uint16 usPort);
 
-		void Process()
-		{
-			for (auto &system : remoteSystems)
-			{
-				if (system->isConnected)
-				{
-
-					// Send back
-					std::string d("Send back");
-					Send(*system, d.c_str(), d.size()+1, false);
-					Send(*system, d.c_str(), d.size()+1, true);
-					Send(*system, d.c_str(), d.size()+1, false);
-					Send(*system, d.c_str(), d.size() + 1, true);
-				}
-			}
-
-			reliabilityLayer.Process();
-
-			for (auto &peer : remoteSystems)
-				peer->reliabilityLayer.Process();
-
-			
-		}
+		void Process();
 
 	private:
 		/* Event handlers */

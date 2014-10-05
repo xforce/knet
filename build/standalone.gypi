@@ -1,5 +1,3 @@
-# As we include v8 directly we have to basically use the plain v8 standalone.gypi file
-
 # Copyright 2012 the V8 project authors. All rights reserved.
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -28,8 +26,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Definitions to be used when building stand-alone V8 binaries.
-
-
 
 {
   # We need to include toolchain.gypi here for third-party sources that don't
@@ -290,6 +286,7 @@
             #   1 == /SUBSYSTEM:CONSOLE
             #   2 == /SUBSYSTEM:WINDOWS
             'SubSystem': '1',
+
           },
         },
       },

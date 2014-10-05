@@ -68,7 +68,7 @@ namespace knet
 		LOW,
 		MEDIUM,
 		HIGH,
-		IMMEDIATE /* Will skip send buffer, and will be sent immediatly */,
+		IMMEDIATE /* skip send buffer */,
 		MAX,
 	};
 
@@ -387,7 +387,7 @@ namespace knet
 		/* Types/structs used internally in Reliability Layer */
 		struct RemoteSystem
 		{
-			ISocket * pSocket = nullptr;
+			std::shared_ptr<ISocket> pSocket = nullptr;
 			SocketAddress address;
 
 			bool operator==(const RemoteSystem& system) const
@@ -397,7 +397,7 @@ namespace knet
 		};
 
 	private:
-		ISocket * m_pSocket = nullptr;
+		std::shared_ptr<ISocket> m_pSocket = nullptr;
 		SocketAddress m_RemoteSocketAddress;
 
 		uint8 orderingChannel = 0;
@@ -504,13 +504,13 @@ namespace knet
 		/*!
 		\return Socket used to send packets
 		*/
-		ISocket * GetSocket() const;
+		std::shared_ptr<ISocket> GetSocket() const;
 
 		//! Sets the socket used to send packets
 		/*!
 		\param[in] pSocket Socket used to send packets
 		*/
-		void SetSocket(ISocket * pSocket);
+		void SetSocket(std::shared_ptr<ISocket> pSocket);
 
 		
 		//! Gets the remote Socket address

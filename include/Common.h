@@ -139,6 +139,7 @@ if !defined(__GXX_EXPERIMENTAL_CXX0X__) || __GXX_EXPERIMENTAL_CXX0X__ != 1
 #ifdef WIN32
 #include <WinSock2.h> // Just to be sure that there will never be a fucking include guard error
 #include <Windows.h>
+#include <WS2tcpip.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -37,7 +37,7 @@
 namespace knet
 {
 
-	class CBerkleySocket : public ISocket
+	class BerkleySocket : public ISocket, public std::enable_shared_from_this<BerkleySocket>
 	{
 	private:
 		SOCKET m_Socket = 0;
@@ -51,9 +51,9 @@ namespace knet
 
 		bool endThread = false;
 	public:
-		CBerkleySocket();
-		CBerkleySocket(decltype(eventHandler) eventHandler);
-		virtual ~CBerkleySocket();
+		BerkleySocket();
+		BerkleySocket(decltype(eventHandler) eventHandler);
+		virtual ~BerkleySocket();
 
 		virtual bool Send(const SocketAddress &remoteSystem, const char* pData, size_t length) final;
 		virtual bool Bind(const SocketBindArguments &bindArgs) final;

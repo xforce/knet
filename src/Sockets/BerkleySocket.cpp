@@ -42,7 +42,7 @@ namespace knet
 	WSADATA wsaData;
 #endif
 
-	CBerkleySocket::CBerkleySocket()
+	BerkleySocket::BerkleySocket()
 	{
 // NOTE: this will later be moved so dont care atm
 #ifdef WIN32
@@ -50,7 +50,7 @@ namespace knet
 #endif
 	}
 
-	CBerkleySocket::~CBerkleySocket()
+	BerkleySocket::~BerkleySocket()
 	{
 		endThread = true;
 #ifdef WIN32
@@ -58,7 +58,7 @@ namespace knet
 #endif
 	}
 
-	bool CBerkleySocket::Send(const SocketAddress &remoteSystem, const char* pData, size_t length)
+	bool BerkleySocket::Send(const SocketAddress &remoteSystem, const char* pData, size_t length)
 	{
 		int sentLen = 0;
 		do
@@ -84,7 +84,7 @@ namespace knet
 		return true;
 	}
 
-	bool CBerkleySocket::Bind(const SocketBindArguments &bindArgs)
+	bool BerkleySocket::Bind(const SocketBindArguments &bindArgs)
 	{
 		// TODO: add IPv6 support
 
@@ -92,9 +92,9 @@ namespace knet
 		memset(&m_BoundAddress.address.addr4, 0, sizeof(sockaddr_in));
 		m_BoundAddress.address.addr4.sin_port = htons(bindArgs.usPort);
 
-		if (bindArgs.szHostAddress)
+		if (!bindArgs.szHostAddress.empty())
 		{
-			m_BoundAddress.address.addr4.sin_addr.s_addr = inet_addr(bindArgs.szHostAddress);
+			m_BoundAddress.address.addr4.sin_addr.s_addr = inet_addr(bindArgs.szHostAddress.c_str());
 		}
 		else
 		{
@@ -192,12 +192,12 @@ namespace knet
 		return true;
 	}
 
-	const SocketType CBerkleySocket::GetSocketType() const
+	const SocketType BerkleySocket::GetSocketType() const
 	{
 		return SocketType::Berkley;
 	}
 
-	void CBerkleySocket::RecvFromLoop()
+	void BerkleySocket::RecvFromLoop()
 	{
 		InternalRecvPacket * packet = new InternalRecvPacket();
 
@@ -247,7 +247,7 @@ namespace knet
 			// TODO: handle return
 			if (recvFromBlocking(m_Socket, *packet))
 			{
-				packet->pSocket = this;
+				packet->pSocket = shared_from_this();
 
 				if (eventHandler)
 				{
@@ -266,21 +266,21 @@ namespace knet
 		bRecvThreadRunning = false;
 	}
 
-	void CBerkleySocket::StartReceiving()
+	void BerkleySocket::StartReceiving()
 	{
 		if (bRecvThreadRunning)
 			return;
 
 		endThread = false;
 
-		std::thread rTh(&CBerkleySocket::RecvFromLoop, this);
+		std::thread rTh(&BerkleySocket::RecvFromLoop, this);
 		receiveThread = std::move(rTh);
 		receiveThread.detach();
 
 		bRecvThreadRunning = true;
 	}
 
-	void CBerkleySocket::StopReceiving(bool bWait)
+	void BerkleySocket::StopReceiving(bool bWait)
 	{
 		endThread = true;
 
@@ -298,7 +298,7 @@ namespace knet
 		}
 	}
 
-	const SocketAddress& CBerkleySocket::GetSocketAddress() const
+	const SocketAddress& BerkleySocket::GetSocketAddress() const
 	{
 		return m_BoundAddress;
 	}

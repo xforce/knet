@@ -1,4 +1,4 @@
-{  
+{
 	'variables' : {
 		'logger_enabled': '<!pymod_do_main(find_logger)',
 	},
@@ -21,6 +21,7 @@
 				['OS=="win"', {
 					'defines': [
 						'WIN32_LEAN_AND_MEAN',
+						'_WINSOCK_DEPRECATED_NO_WARNINGS',
 					],
 					'link_settings':  {
 						'libraries': [ '-lwinmm.lib', '-lws2_32.lib' ],

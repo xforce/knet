@@ -38,7 +38,7 @@ namespace knet
 		: m_pSocket(pSocket)
 	{
 		firstUnsentAck = firstUnsentAck.min(); //std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
-		lastReceiveFromRemote = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
+		lastReceiveFromRemote = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
 		for(uint32 i = 0; i < orderingIndex.size(); ++i)
 		{
@@ -169,23 +169,23 @@ namespace knet
 	{
 		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
-		if ((firstUnsentAck.min() == firstUnsentAck || firstUnsentAck.time_since_epoch().count() > 0) && ((curTime - firstUnsentAck).count() >= 500))
-			SendACKs();
-
-
 		if(m_pSocket)
 		{
 			// Check for timeout
-			if(resendBuffer.size() && lastReceiveFromRemote.time_since_epoch().count() && ((curTime - lastReceiveFromRemote).count() >= 5000))
+			if(((curTime - lastReceiveFromRemote).count() >= 5000))
 			{
 				DEBUG_LOG("Disconnect: Timeout");
 				// NOW send disconnect event so it will be removed in our peer
 				// The Peer which handles this event should stop listening for this socket by calling StopReceiving
 				// Then the peer should remove the Remote stuff on next process not in this handler
 				eventHandler.Call(ReliabilityEvents::CONNECTION_LOST_TIMEOUT, m_RemoteSocketAddress, DisconnectReason::TIMEOUT);
+
+				return;
 			}
 		}
 
+		if ((firstUnsentAck.min() == firstUnsentAck || firstUnsentAck.time_since_epoch().count() > 0) && ((curTime - firstUnsentAck).count() >= 500))
+			SendACKs();
 
 		// TODO: process all network and buffered stuff
 		InternalRecvPacket * pPacket = nullptr;
@@ -838,12 +838,12 @@ namespace knet
 		return true;
 	}
 
-	ISocket * ReliabilityLayer::GetSocket() const
+	std::shared_ptr<ISocket> ReliabilityLayer::GetSocket() const
 	{
 		return m_pSocket;
 	}
 
-	void ReliabilityLayer::SetSocket(ISocket * pSocket)
+	void ReliabilityLayer::SetSocket(std::shared_ptr<ISocket> pSocket)
 	{
 		if (m_pSocket == pSocket)
 			return;

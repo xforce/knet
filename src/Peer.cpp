@@ -37,7 +37,7 @@ namespace knet
 	Peer::Peer()
 	{
 		// Create the local socket
-		pSocket = new CBerkleySocket();
+		pSocket = std::make_shared<BerkleySocket>();
 
 		// Now connect our peer with the socket
 		pSocket->GetEventHandler().AddEvent(SocketEvents::RECEIVE, mkEventN(&Peer::OnReceive, this), this);
@@ -63,8 +63,24 @@ namespace knet
 		}
 	}
 
+	std::shared_ptr<knet::ISocket> Peer::GetSocket()
+	{
+		return pSocket;
+	}
 
-	void Peer::Connect(const char * szRemoteAddress, unsigned short usPort)
+	void Peer::Start(const std::string & strAddress, uint16 usPort)
+	{
+		knet::SocketBindArguments bi;
+
+		bi.usPort = usPort;
+		bi.szHostAddress = strAddress;
+
+		pSocket->Bind(bi);
+		pSocket->StartReceiving();
+	}
+
+
+	void Peer::Connect(const std::string &strRemoteAddress, uint16 usPort)
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -85,7 +101,9 @@ namespace knet
 		memset(&remoteAdd.address.addr4, 0, sizeof(sockaddr_in));
 		remoteAdd.address.addr4.sin_port = htons(usPort);
 
-		remoteAdd.address.addr4.sin_addr.s_addr = inet_addr(szRemoteAddress);
+		//inet_pton(AF_INET, strRemoteAddress.c_str(), &remoteAdd.address.addr4.sin_addr);
+		
+		remoteAdd.address.addr4.sin_addr.s_addr = inet_addr(strRemoteAddress.c_str());
 		remoteAdd.address.addr4.sin_family = AF_INET;
 
 		if (GetSocket())
@@ -94,6 +112,14 @@ namespace knet
 			DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
 
 		DEBUG_LOG("Send");
+	}
+
+	void Peer::Process()
+	{
+		reliabilityLayer.Process();
+
+		for (auto &peer : remoteSystems)
+			peer->reliabilityLayer.Process();
 	}
 
 	void Peer::Send(System &peer, const char * data, size_t len, bool im)
@@ -226,7 +252,7 @@ namespace knet
 			return false;
 		}
 
-		System *system = new System;
+		auto system = std::make_shared<System>();
 		system->reliabilityLayer.SetRemoteAddress(pPacket->remoteAddress);
 		system->reliabilityLayer.SetSocket(this->pSocket);
 
