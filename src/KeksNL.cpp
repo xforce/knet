@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 			pPeer->Start(0, usPort + 1);
 			pPeer->Connect(szAddress, usPort);
 
-			while(true)
+			for (;;)
 			{
 				pPeer->Process();
 			}
@@ -283,7 +283,7 @@ int main(int argc, char** argv)
 	auto lastTitle = GetTickCount();
 #endif
 
-	while (true)
+	for (;;)
 	{
 
 		if (count != 0)

@@ -34,8 +34,6 @@
 
 #define DEBUG_ACKS 1
 
-#define _ITERATOR_DEBUG_LEVEL 0
-
 #if _WIN64 || __x86_64__ || __ppc64__
 #define IS64BIT 1
 #else

@@ -118,8 +118,33 @@ namespace knet
 	{
 		reliabilityLayer.Process();
 
-		for (auto &peer : remoteSystems)
-			peer->reliabilityLayer.Process();
+		if (reorderRemoteSystems)
+		{
+			std::sort(std::begin(remoteSystems), std::end(remoteSystems), [](const std::shared_ptr<System> &systemLeft, const std::shared_ptr<System> &systemRight) {
+				return systemLeft->isActive;
+			});
+
+			reorderRemoteSystems = false;
+		}
+
+
+		if (activeSystems > 0)
+		{
+			for (auto &peer : remoteSystems)
+			{
+				// Break, the list is sorted
+				if (!peer->isActive)
+					break;
+
+				peer->reliabilityLayer.Process();
+			}
+		}
+		else
+		{
+			// We have not active connections, so sleep a short amount of time
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+
 	}
 
 	void Peer::Send(System &peer, const char * data, size_t len, bool im)
@@ -159,15 +184,18 @@ namespace knet
 		{
 			if (address == system->reliabilityLayer.GetRemoteAddress())
 			{
-				remoteSystems.erase(std::find(remoteSystems.begin(), remoteSystems.end(), system));
-				remoteSystems.shrink_to_fit();
+				system->isConnected = false;
+				system->isActive = false;
+
+				this->reorderRemoteSystems = true;
 
 				this->reliabilityLayer.RemoveRemote(address);
+
+				--activeSystems;
 
 				return true;
 			}
 		}
-
 		return false;
 	}
 
@@ -207,7 +235,7 @@ namespace knet
 			this->isConnected = true;
 
 			// Makr the remote as connected
-			for (auto system : remoteSystems)
+			for (auto &system : remoteSystems)
 			{
 				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
 				{
@@ -252,6 +280,17 @@ namespace knet
 			return false;
 		}
 
+		/* Clean up before a new connection is added */
+		remoteSystems.erase(std::remove_if(std::begin(remoteSystems), std::end(remoteSystems), [](const std::shared_ptr<System> &system) {
+			if (system->isActive)
+				return false;
+			else
+			{
+				return true;
+			}
+		}), std::end(remoteSystems));
+
+
 		auto system = std::make_shared<System>();
 		system->reliabilityLayer.SetRemoteAddress(pPacket->remoteAddress);
 		system->reliabilityLayer.SetSocket(this->pSocket);
@@ -263,6 +302,8 @@ namespace knet
 		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::CONNECTION_LOST_TIMEOUT,
 													mkEventN(&Peer::HandleDisconnect, this), this);
 		remoteSystems.push_back(system);
+
+		++activeSystems;
 
 		DEBUG_LOG("New connection {%p} at %p", &system->reliabilityLayer, this);
 		return true;

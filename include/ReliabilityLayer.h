@@ -162,9 +162,11 @@ namespace knet
 		}
 	};
 
+	typedef uint16 OrderedIndexType;
+
 	struct OrderedInfo
 	{
-		uint16 index;
+		OrderedIndexType index;
 		uint8 channel;
 	};
 
@@ -173,6 +175,14 @@ namespace knet
 		uint16 index;
 		uint16 packetIndex;
 		uint8 isEnd = false;
+	};
+
+	typedef uint16 SequenceIndexType;
+
+	struct SequenceInfo
+	{
+		SequenceIndexType index;
+		uint8 channel;
 	};
 
 	struct ReliablePacket
@@ -188,6 +198,8 @@ namespace knet
 		OrderedInfo orderedInfo;
 
 		SplitInfo splitInfo;
+
+		SequenceInfo sequenceInfo;
 	
 		SequenceNumberType sequenceNumber = 0;
 		SocketAddress socketAddress;
@@ -254,7 +266,12 @@ namespace knet
 			{
 				bitStream.Write(orderedInfo);
 			}
-			
+			else if (reliability == PacketReliability::RELIABLE_SEQUENCED
+				|| reliability == PacketReliability::UNRELIABLE_SEQUENCED)
+			{
+				bitStream.Write(sequenceInfo);
+			}
+
 			if (isSplit)
 			{
 				bitStream.Write(splitInfo);
@@ -268,12 +285,14 @@ namespace knet
 		{
 			bitStream.Read(reliability);
 
-			// Read the flags / ! Byte
-			//bitStream.Read();
-
 			if(reliability == PacketReliability::RELIABLE_ORDERED)
 			{
 				bitStream.Read(orderedInfo);
+			}
+			else if (reliability == PacketReliability::RELIABLE_SEQUENCED
+				|| reliability == PacketReliability::UNRELIABLE_SEQUENCED)
+			{
+				bitStream.Read(sequenceInfo);
 			}
 			
 			if (isSplit)
@@ -290,9 +309,14 @@ namespace knet
 
 		size_t GetSizeToSend()
 		{
-			return sizeof(reliability) + (reliability == PacketReliability::RELIABLE_ORDERED ? sizeof(orderedInfo) : 0) + sizeof(dataLength) + dataLength;
+			return sizeof(reliability) 
+				+ (reliability == PacketReliability::RELIABLE_ORDERED ? sizeof(orderedInfo) : 0) 
+				+ (reliability == PacketReliability::RELIABLE_SEQUENCED ? sizeof(sequenceInfo) : 0)
+				+ (reliability == PacketReliability::UNRELIABLE_SEQUENCED ? sizeof(sequenceInfo) : 0)
+				+ sizeof(dataLength) + dataLength;
 		}
 
+		// Packets can not be copied
 		ReliablePacket & operator=(const ReliablePacket &other) = delete;
 
 		ReliablePacket & operator=(ReliablePacket &&other)
@@ -412,11 +436,14 @@ namespace knet
 
 		std::mutex bufferMutex;
 
+		// This is a mess, fuck MS for not using constexpr in numeric_limits
 #if WIN32
-		std::array<uint32, 255> orderingIndex;
+		std::array<OrderedIndexType, 255> orderingIndex;
 #else
-		std::array<uint32, std::numeric_limits<decltype(orderingChannel)>::max()> orderingIndex;
+		std::array<uint16, std::numeric_limits<decltype(orderingChannel)>::max()> orderingIndex;
 #endif
+
+		std::array<SequenceIndexType, 255> sequencingIndex;
 
 		std::queue<InternalRecvPacket*> bufferedPacketQueue;
 
@@ -426,7 +453,6 @@ namespace knet
 		std::vector<SequenceNumberType> acknowledgements;
 
 
-		//std::vector<ReliablePacket> sendBuffer;
 		std::array < std::vector<ReliablePacket>, static_cast<std::size_t>(PacketPriority::IMMEDIATE)> sendBuffer;
 
 		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, std::unique_ptr<DatagramPacket>>> resendBuffer;
@@ -448,6 +474,8 @@ namespace knet
 #else
 		std::array<uint16, std::numeric_limits<decltype(orderingChannel)>::max()> lastOrderedIndex;
 #endif
+
+		std::array<uint16, 255> highestSequencedReadIndex;
 
 	private:
 		/* Methods */
@@ -473,7 +501,6 @@ namespace knet
 		bool OnReceive(InternalRecvPacket *packet);
 
 		InternalRecvPacket* PopBufferedPacket();
-
 		
 		inline decltype(eventHandler) &GetEventHandler()
 		{

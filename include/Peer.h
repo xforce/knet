@@ -50,7 +50,8 @@ namespace knet
 		struct System
 		{
 			knet::ReliabilityLayer reliabilityLayer;
-			bool isConnected;
+			bool isConnected = false;
+			bool isActive = true;
 		};
 
 		knet::ReliabilityLayer reliabilityLayer;
@@ -63,6 +64,8 @@ namespace knet
 		uint32 maxConnections = 5;
 
 		bool isConnected = false;
+		bool reorderRemoteSystems = true;
+		uint32 activeSystems = 0;
 
 	public:
 		Peer();

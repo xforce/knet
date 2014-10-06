@@ -37,7 +37,7 @@ namespace knet
 	ReliabilityLayer::ReliabilityLayer(ISocket * pSocket)
 		: m_pSocket(pSocket)
 	{
-		firstUnsentAck = firstUnsentAck.min(); //std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
+		firstUnsentAck = firstUnsentAck.min();
 		lastReceiveFromRemote = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
 		for(uint32 i = 0; i < orderingIndex.size(); ++i)
@@ -49,6 +49,8 @@ namespace knet
 		{
 			lastOrderedIndex[i] = 0;
 		}
+
+		highestSequencedReadIndex.fill(0);
 
 		resendBuffer.reserve(512);
 	}
@@ -112,7 +114,8 @@ namespace knet
 			pDatagramPacket->header.isNACK = false;
 
 			if (reliability == PacketReliability::RELIABLE
-				|| reliability == PacketReliability::RELIABLE_ORDERED)
+				|| reliability == PacketReliability::RELIABLE_ORDERED
+				|| reliability == PacketReliability::RELIABLE_SEQUENCED)
 			{
 				pDatagramPacket->header.isReliable = true;
 				pDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
@@ -132,6 +135,12 @@ namespace knet
 			{
 				sendPacket.orderedInfo.index = orderingIndex[orderingChannel]++;
 				sendPacket.orderedInfo.channel = orderingChannel;
+			}
+			else if (reliability == PacketReliability::RELIABLE_SEQUENCED
+				|| reliability == PacketReliability::UNRELIABLE_SEQUENCED)
+			{
+				sendPacket.sequenceInfo.index = sequencingIndex[orderingChannel]++;
+				sendPacket.sequenceInfo.channel = orderingChannel;
 			}
 
 			pDatagramPacket->packets.push_back(std::move(sendPacket));
@@ -157,6 +166,12 @@ namespace knet
 			{
 				sendPacket.orderedInfo.index = orderingIndex[orderingChannel]++;
 				sendPacket.orderedInfo.channel = orderingChannel;
+			}
+			else if (reliability == PacketReliability::RELIABLE_SEQUENCED
+				|| reliability == PacketReliability::UNRELIABLE_SEQUENCED)
+			{
+				sendPacket.sequenceInfo.index = sequencingIndex[orderingChannel]++;
+				sendPacket.sequenceInfo.channel = orderingChannel;
 			}
 
 			sendBuffer[sendPacket.priority].push_back(std::move(sendPacket));
@@ -184,7 +199,7 @@ namespace knet
 			}
 		}
 
-		if ((firstUnsentAck.min() == firstUnsentAck || firstUnsentAck.time_since_epoch().count() > 0) && ((curTime - firstUnsentAck).count() >= 500))
+		if ((firstUnsentAck.min() == firstUnsentAck) && ((curTime - firstUnsentAck).count() >= 500))
 			SendACKs();
 
 		// TODO: process all network and buffered stuff
@@ -279,7 +294,7 @@ namespace knet
 					for (auto &packet : orderedPackets)
 					{
 
-						if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+						if (firstUnsentAck == firstUnsentAck.min())
 							firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
 						if (lastIndex > packet.orderedInfo.index)
@@ -424,7 +439,8 @@ namespace knet
 				// Now remove the packet from the list
 
 				if (packet.reliability == PacketReliability::RELIABLE
-					|| packet.reliability == PacketReliability::RELIABLE_ORDERED)
+					|| packet.reliability == PacketReliability::RELIABLE_ORDERED
+					|| packet.reliability == PacketReliability::RELIABLE_SEQUENCED)
 				{
 					pCurrentPacket = pReliableDatagramPacket;
 				}
@@ -467,7 +483,8 @@ namespace knet
 
 					// Update the current packet again because it could be used again later
 					if (packet.reliability == PacketReliability::RELIABLE
-						|| packet.reliability == PacketReliability::RELIABLE_ORDERED)
+						|| packet.reliability == PacketReliability::RELIABLE_ORDERED
+						|| packet.reliability == PacketReliability::RELIABLE_SEQUENCED)
 					{
 						pCurrentPacket = pReliableDatagramPacket;
 					}
@@ -555,13 +572,34 @@ namespace knet
 		{
 			if(remote.address == remoteAddress)
 			{
-
-				remoteList.erase(std::find(remoteList.begin(), remoteList.end(), remote));
+				remoteList.erase(std::next(std::find(remoteList.rbegin(), remoteList.rend(), remote)).base());
 				remoteList.shrink_to_fit();
-
 				return;
 			}
 		}
+	}
+
+	bool IsOlderOrderedPacket(SequenceNumberType newPacketOrderingIndex, SequenceNumberType waitingForPacketOrderingIndex)
+	{
+		SequenceNumberType maxRange = (SequenceNumberType) (const uint32_t) -1;
+
+		if (waitingForPacketOrderingIndex > maxRange / (SequenceNumberType) 2)
+		{
+			if (newPacketOrderingIndex >= waitingForPacketOrderingIndex - maxRange / (SequenceNumberType) 2 + (SequenceNumberType) 1 && newPacketOrderingIndex < waitingForPacketOrderingIndex)
+			{
+				return true;
+			}
+		}
+
+		else
+			if (newPacketOrderingIndex >= (SequenceNumberType) (waitingForPacketOrderingIndex - ((SequenceNumberType) maxRange / (SequenceNumberType) 2 + (SequenceNumberType) 1)) ||
+				newPacketOrderingIndex < waitingForPacketOrderingIndex)
+			{
+				return true;
+			}
+
+		// Old packet
+		return false;
 	}
 
 	bool ReliabilityLayer::ProcessPacket(InternalRecvPacket *pPacket, std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
@@ -767,12 +805,17 @@ namespace knet
 
 								orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(completePacket));
 							}
-							else
+							else if (packet.reliability == PacketReliability::RELIABLE_SEQUENCED || packet.reliability == PacketReliability::UNRELIABLE_SEQUENCED)
 							{
-								//if (eventHandler)
+								if (!IsOlderOrderedPacket(packet.sequenceInfo.index, highestSequencedReadIndex[packet.orderedInfo.channel]))
 								{
+									highestSequencedReadIndex[packet.orderedInfo.channel] = packet.sequenceInfo.index + (SequenceIndexType) 1;
 									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, completePacket, pPacket->remoteAddress);
 								}
+							}
+							else
+							{
+								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, completePacket, pPacket->remoteAddress);
 							}
 						}
 					}
@@ -784,7 +827,7 @@ namespace knet
 							// 
 							if (packet.reliability >= PacketReliability::RELIABLE)
 							{
-								if (firstUnsentAck.time_since_epoch().count() == 0 || firstUnsentAck == firstUnsentAck.min())
+								if (firstUnsentAck == firstUnsentAck.min())
 									firstUnsentAck = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 							}
 
@@ -795,12 +838,17 @@ namespace knet
 
 								orderedPacketBuffer[packet.orderedInfo.channel].push_back(std::move(packet));
 							}
-							else
+							else if (packet.reliability == PacketReliability::RELIABLE_SEQUENCED || packet.reliability == PacketReliability::UNRELIABLE_SEQUENCED)
 							{
-								//if(eventHandler)
+								if (!IsOlderOrderedPacket(packet.sequenceInfo.index, highestSequencedReadIndex[packet.orderedInfo.channel]))
 								{
+									highestSequencedReadIndex[packet.orderedInfo.channel] = packet.sequenceInfo.index + (SequenceIndexType) 1;
 									eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
 								}
+							}
+							else
+							{
+								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, pPacket->remoteAddress);
 							}
 						}
 					}
@@ -813,16 +861,13 @@ namespace knet
 
 		// New connection
 		// Handle new connection event
-		//if (eventHandler)
+		// Handle new connection
+		auto r = eventHandler.Call(ReliabilityEvents::NEW_CONNECTION, pPacket);
+		if (r != eventHandler.NO_EVENT && r != eventHandler.ALL_TRUE /* one handler refused the connection */)
 		{
-			// Handle new connection
-			auto r = eventHandler.Call(ReliabilityEvents::NEW_CONNECTION, pPacket);
-			if (r != eventHandler.NO_EVENT && r != eventHandler.ALL_TRUE /* one handler refused the connection */)
-			{
-				// The remote will be notified in Peer this is not the job of the reliability layer
-				// Return false because the packet was not handled
-				return false;
-			}
+			// The remote will be notified in Peer this is not the job of the reliability layer
+			// Return false because the packet was not handled
+			return false;
 		}
 
 		RemoteSystem system;
@@ -1004,7 +1049,7 @@ namespace knet
 		{
 
 			// Reset the firstUnsentAck to 0
-			firstUnsentAck = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>(std::chrono::milliseconds(0));
+			firstUnsentAck = firstUnsentAck.min();
 
 			// Only shrink when its really big
 			if(acknowledgements.capacity() > 65535)
@@ -1147,6 +1192,7 @@ namespace knet
 
 		BitStream bitStream{MAX_MTU_SIZE};
 
+		// TODO: dont send them all together
 		for (auto &splitPacket : splitPackets)
 		{
 			// Add the packet to the datagram packet
