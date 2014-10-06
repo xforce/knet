@@ -115,7 +115,7 @@ namespace knet
 	};
 
 
-	typedef int SequenceNumberType;
+	typedef int32 SequenceNumberType;
 
 	class DatagramHeader
 	{

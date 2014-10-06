@@ -583,21 +583,23 @@ namespace knet
 	{
 		SequenceNumberType maxRange = (SequenceNumberType) (const uint32_t) -1;
 
-		if (waitingForPacketOrderingIndex > maxRange / (SequenceNumberType) 2)
+		if (waitingForPacketOrderingIndex > maxRange / 2)
 		{
-			if (newPacketOrderingIndex >= waitingForPacketOrderingIndex - maxRange / (SequenceNumberType) 2 + (SequenceNumberType) 1 && newPacketOrderingIndex < waitingForPacketOrderingIndex)
+			if (newPacketOrderingIndex >= waitingForPacketOrderingIndex - maxRange / 2 + 1 
+				&& newPacketOrderingIndex < waitingForPacketOrderingIndex)
 			{
 				return true;
 			}
 		}
 
 		else
-			if (newPacketOrderingIndex >= (SequenceNumberType) (waitingForPacketOrderingIndex - ((SequenceNumberType) maxRange / (SequenceNumberType) 2 + (SequenceNumberType) 1)) ||
-				newPacketOrderingIndex < waitingForPacketOrderingIndex)
+		{
+			if (newPacketOrderingIndex >= (waitingForPacketOrderingIndex - (maxRange / 2 + 1)) 
+				|| newPacketOrderingIndex < waitingForPacketOrderingIndex)
 			{
 				return true;
 			}
-
+		}
 		// Old packet
 		return false;
 	}
@@ -624,10 +626,10 @@ namespace knet
 					uint32 count = 0;
 					bitStream.Read(count);
 
-					std::vector<std::pair<int, int>> ranges(count);
+					std::vector<std::pair<int32, int32>> ranges(count);
 
-					int max;
-					int min;
+					int32 max;
+					int32 min;
 
 					for (uint32 i = 0; i < count; ++i)
 					{
@@ -652,14 +654,10 @@ namespace knet
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
 						
 						// Checks if the given sequence number is in range of the given acks
-						auto isInAckRange = [](decltype(ranges)& vecRange, int sequenceNumber) -> bool
-						{
-							for (auto &k : vecRange)
-							{
-								if (sequenceNumber >= k.first && sequenceNumber <= k.second)
-									return true;
-							}
-							return false;
+						auto isInAckRange = [](decltype(ranges)& vecRange, int32 sequenceNumber) {
+							return std::any_of(std::begin(vecRange), std::end(vecRange), [sequenceNumber](const auto &k) {
+								return (sequenceNumber >= k.first && sequenceNumber <= k.second);
+							});
 						};
 
 						if (isInAckRange(ranges, sequenceNumber))
@@ -674,15 +672,13 @@ namespace knet
 				else if (dPacket.header.isNACK)
 				{
 					// Handle NACK Packet
-					// Immediatly resend the packets
-
 					uint32 count = 0;
 					bitStream.Read(count);
 
-					std::vector<std::pair<int, int>> ranges(count);
+					std::vector<std::pair<int32, int32>> ranges(count);
 
-					int max;
-					int min;
+					int32 max;
+					int32 min;
 
 					for (uint32 i = 0; i < count; ++i)
 					{
@@ -704,19 +700,16 @@ namespace knet
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
 						
 						// Checks if the given sequence number is in range of the given acks
-						auto isInAckRange = [](decltype(ranges)& vecRange, int sequenceNumber) -> bool
-						{
-							for (auto &k : vecRange)
-							{
-								if (sequenceNumber >= k.first && sequenceNumber <= k.second)
-									return true;
-							}
-							return false;
+						auto isInAckRange = [](decltype(ranges)& vecRange, int32 sequenceNumber) {
+							return std::any_of(std::begin(vecRange), std::end(vecRange), [sequenceNumber](const auto &k) {
+								return (sequenceNumber >= k.first && sequenceNumber <= k.second);
+							});
 						};
 
 						if (isInAckRange(ranges, sequenceNumber))
 						{
-							// todo: handle congestion control
+							// TODO: handle congestion control
+							// TODO: dont sent the packet immediatly, its better to readd it to the send buffer!?
 
 							// Resend packet
 							resendBuffer[i].second->Serialize(bitStream);
@@ -951,9 +944,9 @@ namespace knet
 
 		BitStream bitStream{MAX_MTU_SIZE};
 
-		int min = -1;
-		int max = 0;
-		int writtenTo = 0;
+		int32 min = -1;
+		int32 max = 0;
+		int32 writtenTo = 0;
 		uint32 writeCount = 0;
 
 		// Now write the range stuff to the bitstream
