@@ -30,7 +30,7 @@ bool ahaskdj(knet::InternalRecvPacket*)
 
 bool PublicReceiveHandler(knet::InternalRecvPacket* pPacket)
 {
-
+	UNREFERENCED_PARAMETER(pPacket);
 	DEBUG_LOG("Public handler");
 	return true;
 }
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 		{
 			// Start the client
 			const char *szAddress = argv[2];
-			unsigned short usPort = atoi(argv[3]);
+			unsigned short usPort = static_cast<unsigned short>(std::atoi(argv[3]));
 			knet::Peer * pPeer = new knet::Peer();
 			pPeer->Start(0, usPort + 1);
 			pPeer->Connect(szAddress, usPort);
@@ -74,14 +74,14 @@ int main(int argc, char** argv)
 			
 
 			// Get the listening port
-			unsigned short usPort = atoi(argv[2]);
+			auto usPort = static_cast<unsigned short>(std::atoi(argv[2]));
 			knet::Peer * pPeer = new knet::Peer();
 
 			// Start the server
 			pPeer->Start(0, usPort);
 
 
-			while(true)
+			for (;;)
 			{
 				pPeer->Process();
 			}
@@ -337,8 +337,4 @@ int main(int argc, char** argv)
 	//DEBUG_LOG("Kekse it works: %d", hallo);
 
 #pragma endregion
-
-	getchar();
-
-	return 0;
 }

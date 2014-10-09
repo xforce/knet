@@ -35,6 +35,10 @@
 #include "Sockets/BerkleySocket.h"
 #include "EventHandler.h"
 
+#include "DatagramHeader.h"
+#include "ReliablePacket.h"
+#include "DatagramPacket.h"
+
 #include <mutex>
 #include <queue>
 #include <bitset>
@@ -63,26 +67,7 @@ namespace knet
 		INTERNAL_PING,
 	};
 
-	enum PacketPriority : uint8
-	{
-		LOW,
-		MEDIUM,
-		HIGH,
-		IMMEDIATE /* skip send buffer */,
-		MAX,
-	};
 
-	enum class PacketReliability : uint8
-	{
-		UNRELIABLE = 0,
-		UNRELIABLE_SEQUENCED,
-
-		RELIABLE,
-		RELIABLE_ORDERED,
-		RELIABLE_SEQUENCED,
-
-		MAX,
-	};
 
 	class FlowControlHelper
 	{
@@ -111,292 +96,6 @@ namespace knet
 				splitNumber = 0;
 
 			return splitNumber++;
-		}
-	};
-
-
-	typedef int32 SequenceNumberType;
-
-	class DatagramHeader
-	{
-	public:
-		bool isACK;
-		bool isNACK;
-		bool isReliable = true;
-		bool isSplit = false;
-		SequenceNumberType sequenceNumber = 0;
-
-
-		virtual void Serialize(BitStream & bitStream)
-		{
-			bitStream.Write(isACK);
-			bitStream.Write(isNACK);
-			bitStream.Write(isReliable);
-			bitStream.Write(isSplit);
-
-			// Now fill to 1 byte to improve performance
-			// This can later be used for more information in the header
-			bitStream.AddWriteOffset(4);
-
-			/* To save bandwith for ack/nack */
-			if (!isACK && !isNACK && isReliable)
-				bitStream.Write(sequenceNumber);
-		}
-
-		virtual void Deserialize(BitStream & bitStream)
-		{
-			bitStream.Read(isACK);
-			bitStream.Read(isNACK);
-			bitStream.Read(isReliable);
-			bitStream.Read(isSplit);
-
-			bitStream.SetReadOffset(bitStream.ReadOffset() + 4);
-
-			if (!isACK && !isNACK && isReliable)
-				bitStream.Read(sequenceNumber);
-		}
-
-		size_t GetSizeToSend()
-		{
-			return 1 + ((!isACK && !isNACK && isReliable) ? sizeof(sequenceNumber) : 0);
-		}
-	};
-
-	typedef uint16 OrderedIndexType;
-
-	struct OrderedInfo
-	{
-		OrderedIndexType index;
-		uint8 channel;
-	};
-
-	struct SplitInfo
-	{
-		uint16 index;
-		uint16 packetIndex;
-		uint8 isEnd = false;
-	};
-
-	typedef uint16 SequenceIndexType;
-
-	struct SequenceInfo
-	{
-		SequenceIndexType index;
-		uint8 channel;
-	};
-
-	struct ReliablePacket
-	{
-	private:
-		std::unique_ptr<char> pData = nullptr;
-		uint16 dataLength = 0;
-
-	public:
-		PacketReliability reliability = PacketReliability::UNRELIABLE;
-		PacketPriority priority;
-		
-		OrderedInfo orderedInfo;
-
-		SplitInfo splitInfo;
-
-		SequenceInfo sequenceInfo;
-	
-		SequenceNumberType sequenceNumber = 0;
-		SocketAddress socketAddress;
-
-		bool isSplit = false;
-
-		ReliablePacket()
-		{
-
-		}
-
-		ReliablePacket(const ReliablePacket &other) = delete;
-
-		const char * Data()
-		{
-			return pData.get();
-		}
-
-		decltype(dataLength) Size()
-		{
-			return dataLength;
-		}
-
-		ReliablePacket(const char * data, ::size_t length)
-		{
-			
-			pData = std::unique_ptr<char>{new char[length]};
-			memcpy(pData.get(), data, length);
-			dataLength = static_cast<uint16>(length);
-		}
-
-		ReliablePacket(ReliablePacket &&other)
-		{
-#if WIN32 /* Visual Studio stable_sort calls self move assignment operator */
-			if (this == &other)
-				return;
-#endif
-
-			this->pData = std::move(other.pData);
-			this->priority = other.priority;
-			this->reliability = other.reliability;
-			this->dataLength = other.dataLength;
-			this->orderedInfo = other.orderedInfo;
-			this->splitInfo = other.splitInfo;
-			this->sequenceNumber = other.sequenceNumber;
-			this->isSplit = other.isSplit;
-			
-			other.pData = nullptr;
-		}
-
-		~ReliablePacket()
-		{
-			pData = nullptr;
-		}
-
-		void Serialize(BitStream &bitStream)
-		{
-			bitStream.Write(reliability);
-
-			// Write flags / 1 Byte
-			//bitStream.Write();
-
-			if(reliability == PacketReliability::RELIABLE_ORDERED)
-			{
-				bitStream.Write(orderedInfo);
-			}
-			else if (reliability == PacketReliability::RELIABLE_SEQUENCED
-				|| reliability == PacketReliability::UNRELIABLE_SEQUENCED)
-			{
-				bitStream.Write(sequenceInfo);
-			}
-
-			if (isSplit)
-			{
-				bitStream.Write(splitInfo);
-			}
-
-			bitStream.Write(dataLength);
-			bitStream.Write(pData.get(), dataLength);
-		}
-
-		void Deserialize(BitStream &bitStream)
-		{
-			bitStream.Read(reliability);
-
-			if(reliability == PacketReliability::RELIABLE_ORDERED)
-			{
-				bitStream.Read(orderedInfo);
-			}
-			else if (reliability == PacketReliability::RELIABLE_SEQUENCED
-				|| reliability == PacketReliability::UNRELIABLE_SEQUENCED)
-			{
-				bitStream.Read(sequenceInfo);
-			}
-			
-			if (isSplit)
-			{
-				bitStream.Read(splitInfo);
-			}
-
-			bitStream.Read(dataLength);
-
-			pData = std::unique_ptr<char>{new char[dataLength]};
-
-			bitStream.Read(pData.get(), dataLength);
-		}
-
-		size_t GetSizeToSend()
-		{
-			return sizeof(reliability) 
-				+ (reliability == PacketReliability::RELIABLE_ORDERED ? sizeof(orderedInfo) : 0) 
-				+ (reliability == PacketReliability::RELIABLE_SEQUENCED ? sizeof(sequenceInfo) : 0)
-				+ (reliability == PacketReliability::UNRELIABLE_SEQUENCED ? sizeof(sequenceInfo) : 0)
-				+ sizeof(dataLength) + dataLength;
-		}
-
-		// Packets can not be copied
-		ReliablePacket & operator=(const ReliablePacket &other) = delete;
-
-		ReliablePacket & operator=(ReliablePacket &&other)
-		{
-
-#if WIN32 /* Visual Studio stable_sort calls self move assignment operator */
-			if (this == &other)
-				return *this;
-#endif
-
-			this->pData = std::move(other.pData);
-			this->priority = other.priority;
-			this->reliability = other.reliability;
-			this->dataLength = other.dataLength;
-			this->orderedInfo = other.orderedInfo;
-			this->splitInfo = other.splitInfo;
-			this->sequenceNumber = other.sequenceNumber;
-			this->isSplit = other.isSplit;
-
-			other.pData = nullptr;
-			return *this;
-		}
-	};
-
-	struct DatagramPacket
-	{
-		DatagramHeader header;
-
-		std::vector<ReliablePacket> packets;
-
-		DatagramPacket()
-		{
-
-		}
-
-		void Serialize(BitStream & bitStream)
-		{
-
-			header.Serialize(bitStream);
-
-			if (!header.isACK && !header.isNACK)
-				for (auto &packet : packets)
-					packet.Serialize(bitStream);
-
-		}
-
-		void Deserialze(BitStream & bitStream)
-		{
-			auto bsSize = BYTES_TO_BITS(bitStream.Size());
-
-			header.Deserialize(bitStream);
-
-			packets.reserve(5);
-
-			ReliablePacket packet;
-
-			if (!header.isACK && !header.isNACK)
-			{
-				while (bitStream.ReadOffset() < bsSize)
-				{
-					packet.isSplit = header.isSplit;
-
-					packet.Deserialize(bitStream);
-
-					packets.push_back(std::move(packet));
-				}
-			}
-			
-			/*packets.shrink_to_fit();*/
-		}
-
-		size_t GetSizeToSend()
-		{
-			size_t size = 0;
-			for (auto &packet : packets)
-			{
-				size += packet.GetSizeToSend();
-			}
-
-			return size+header.GetSizeToSend();
 		}
 	};
 
@@ -447,13 +146,11 @@ namespace knet
 
 		std::queue<InternalRecvPacket*> bufferedPacketQueue;
 
-
 		std::vector<RemoteSystem> remoteList;
-
 		std::vector<SequenceNumberType> acknowledgements;
 
 
-		std::array < std::vector<ReliablePacket>, static_cast<std::size_t>(PacketPriority::IMMEDIATE)> sendBuffer;
+		std::array<std::vector<ReliablePacket>, static_cast<std::size_t>(PacketPriority::IMMEDIATE)> sendBuffer;
 
 		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, std::unique_ptr<DatagramPacket>>> resendBuffer;
 

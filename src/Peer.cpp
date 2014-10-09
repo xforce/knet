@@ -121,6 +121,7 @@ namespace knet
 		if (reorderRemoteSystems)
 		{
 			std::sort(std::begin(remoteSystems), std::end(remoteSystems), [](const std::shared_ptr<System> &systemLeft, const std::shared_ptr<System> &systemRight) {
+				UNREFERENCED_PARAMETER(systemRight);
 				return systemLeft->isActive;
 			});
 
@@ -180,6 +181,8 @@ namespace knet
 
 	bool Peer::HandleDisconnect(SocketAddress address, DisconnectReason reason)
 	{
+		UNREFERENCED_PARAMETER(reason);
+
 		for (auto &system : remoteSystems)
 		{
 			if (address == system->reliabilityLayer.GetRemoteAddress())

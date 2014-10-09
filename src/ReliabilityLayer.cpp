@@ -204,7 +204,7 @@ namespace knet
 
 		// TODO: process all network and buffered stuff
 		InternalRecvPacket * pPacket = nullptr;
-		while ((pPacket = PopBufferedPacket()) && pPacket != nullptr)
+		while ((pPacket = PopBufferedPacket()) != nullptr && pPacket != nullptr)
 		{
 			// TODO: handle return
 			ProcessPacket(pPacket, curTime);
@@ -270,6 +270,8 @@ namespace knet
 
 	void ReliabilityLayer::ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
 	{
+		UNREFERENCED_PARAMETER(curTime);
+
 		int i = 0;
 		uint16 lastIndex = 0;
 		uint8 channel = 0;

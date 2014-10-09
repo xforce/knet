@@ -220,6 +220,8 @@
         'msvs_settings': {
           'VCCLCompilerTool': {
             'Optimization': '0',
+            'WarningLevel': '4',
+            'WarnAsError': 'true',
             'conditions': [
               ['component=="shared_library"', {
                 'RuntimeLibrary': '3',  # /MDd
@@ -259,6 +261,8 @@
         'msvs_settings': {
           'VCCLCompilerTool': {
             'Optimization': '1',
+            'WarningLevel': '4',
+            'WarnAsError': 'true',
             'InlineFunctionExpansion': '2',
             'EnableIntrinsicFunctions': 'true',
             'FavorSizeOrSpeed': '0',
@@ -313,6 +317,8 @@
         'msvs_settings': {
           'VCCLCompilerTool': {
             'Optimization': '2',
+            'WarningLevel': '4',
+            'WarnAsError': 'true',
             'InlineFunctionExpansion': '2',
             'EnableIntrinsicFunctions': 'true',
             'FavorSizeOrSpeed': '0',
