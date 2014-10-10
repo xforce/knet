@@ -37,7 +37,7 @@ namespace knet
 		: BitStream(10)
 	{
 	}
-	
+
 	BitStream::BitStream(size_t initialBytes)
 	{
 		if (initialBytes < BITSTREAM_STACK_SIZE)
@@ -48,7 +48,7 @@ namespace knet
 		else
 		{
 			// TODO: track avg to make allocation to better fit the need
-			pData = (decltype(pData))malloc(initialBytes);
+			pData = (decltype(pData)) malloc(initialBytes);
 			bitsAllocated = BYTES_TO_BITS(initialBytes);
 		}
 	}
@@ -81,7 +81,7 @@ namespace knet
 		//copyData = _copyData;
 		bitsAllocated = BYTES_TO_BITS(lengthInBytes);
 
-		if (_copyData || 1==1)
+		if (_copyData || 1 == 1)
 		{
 			if (lengthInBytes < BITSTREAM_STACK_SIZE)
 			{
@@ -89,21 +89,21 @@ namespace knet
 				bitsAllocated = BYTES_TO_BITS(BITSTREAM_STACK_SIZE);
 			}
 			else
-			//if (lengthInBytes > 0)
+				//if (lengthInBytes > 0)
 			{
-				pData = (unsigned char*)malloc((size_t)lengthInBytes);
-				
+				pData = (unsigned char*) malloc((size_t) lengthInBytes);
+
 				assert(pData);
 
-				
+
 			}
 			/*else
-				pData = 0;*/
+			pData = 0;*/
 
-			memcpy(pData, _data, (size_t)lengthInBytes);
+			memcpy(pData, _data, (size_t) lengthInBytes);
 		}
 		else
-			pData = (unsigned char*)_data;
+			pData = (unsigned char*) _data;
 	}
 
 	BitStream::~BitStream()
@@ -126,7 +126,7 @@ namespace knet
 			return true;
 		}
 
-		auto data = (decltype(pData))realloc(pData, BITS_TO_BYTES(newBitsAllocated));
+		auto data = (decltype(pData)) realloc(pData, BITS_TO_BYTES(newBitsAllocated));
 
 		if (!data)
 			return false;
@@ -212,7 +212,7 @@ namespace knet
 		}
 		else
 		{
-			return WriteBits((unsigned char*)pData, bitsToWrite);
+			return WriteBits((unsigned char*) pData, bitsToWrite);
 		}
 	}
 
@@ -242,7 +242,7 @@ namespace knet
 
 			if (8 - (numberOfBitsUsedMod8) < 8 && 8 - (numberOfBitsUsedMod8) < numberOfBits)
 			{
-				*(this->pData + (bitsUsed >> 3) + 1) = (unsigned char)(dataByte << (8 - (numberOfBitsUsedMod8)));
+				*(this->pData + (bitsUsed >> 3) + 1) = (unsigned char) (dataByte << (8 - (numberOfBitsUsedMod8)));
 			}
 
 			if (numberOfBits >= 8)
@@ -265,7 +265,7 @@ namespace knet
 	{
 		if ((readOffset & 7) == 0)
 		{
-			memcpy(pData, this->pData + (readOffset >> 3), (size_t)size);
+			memcpy(pData, this->pData + (readOffset >> 3), (size_t) size);
 
 			readOffset += size << 3;
 		}
@@ -300,7 +300,7 @@ namespace knet
 		{
 			size_t offset = 0;
 
-			memset(pData, 0, (size_t)BITS_TO_BYTES(numberOfBits));
+			memset(pData, 0, (size_t) BITS_TO_BYTES(numberOfBits));
 
 			while (numberOfBits > 0)
 			{
@@ -326,10 +326,11 @@ namespace knet
 		}
 	}
 
-	bool BitStream::Write(const std::string &str)
+	template <>
+	bool BitStream::Write<std::string>(const std::string & str)
 	{
-		return (Write(str.length())
-				&& Write((unsigned char*)str.c_str(), str.size()));
+		return (Write(str.size())
+			&& Write((unsigned char*) str.c_str(), str.size()));
 	}
 
 
@@ -339,33 +340,18 @@ namespace knet
 	}
 
 	void BitStream::SetWriteOffset(size_t writeOffset)
-	{ 
+	{
 		PrepareWrite(writeOffset - this->bitsUsed);
 
 		bitsUsed = writeOffset;
 	}
 
 	void BitStream::AddWriteOffset(size_t writeOffset)
-	{ 
+	{
 		PrepareWrite(this->bitsUsed + writeOffset);
 
 		bitsUsed += writeOffset;
 	}
-
-
-#if 0
-	template<typename T>
-	bool BitStream::Write(const T &value)
-	{
-		return Write((unsigned char*)&value, sizeof(T));
-	}
-
-	template<typename T>
-	bool BitStream::Read(T &value)
-	{
-		return Read((unsigned char*)&value, sizeof(T));
-	}
-#endif
 
 #pragma region operators
 

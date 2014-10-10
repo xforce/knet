@@ -167,30 +167,54 @@ typedef int SOCKET;
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <cstdio>
 
+#define NAMESPACE_KNET_BEGIN namespace knet {
+#define NAMESPACE_KNET_END }
 
-typedef std::int8_t int8;
-typedef std::uint8_t uint8;
+NAMESPACE_KNET_BEGIN
 
-typedef std::int16_t int16;
-typedef std::uint16_t uint16;
+// Define the standard types to shorter names
+using int8 = ::std::int8_t;
+using uint8 = ::std::uint8_t;
 
-typedef std::int32_t int32;
-typedef std::uint32_t uint32;
+using int16 = ::std::int16_t;
+using uint16 = ::std::uint16_t;
 
-typedef std::int64_t int64;
-typedef std::uint64_t uint64;
+using int32 = ::std::int32_t;	
+using uint32 = ::std::uint32_t;
 
-#define _INTERFACE class
+using int64 = ::std::int64_t;
+using uint64 = ::std::uint64_t;
 
-#ifdef KEKSNL_STATIC
-#   define KEKSNL_API
+NAMESPACE_KNET_END
+
+#if defined(_MSC_VER)
+//  Microsoft
+#define KNET_API_EXPORT __declspec(dllexport)
+#define KNET_API_IMPORT __declspec(dllimport)
+#elif defined(_GCC)
+//  GCC
+#define KNET_API_EXPORT
+#define KNET_API_IMPORT
 #else
-#if defined(KEKSNL_EXPORT) // inside DLL
-#   define KEKSNL_API   __declspec(dllexport)
+//  do nothing and hope for the best?
+#define KNET_API_EXPORT
+#define KNET_API_IMPORT
+#pragma warning Unknown dynamic link import/export semantics.
+#endif
+
+#ifdef KNET_STATIC
+#ifndef KNET_EXPORTS
+#error "Export have to be defined even if you build static so that the kNet can work correctly"
+#endif
+#   define KNET_API
+#else
+#if defined(KNET_EXPORTS) // inside DLL
+#   define KNET_API   KNET_API_EXPORT
 #else // outside DLL
-#   define KEKSNL_API   __declspec(dllimport)
-#endif  // KEKSNL_EXPORT
+#   define KNET_API   KNET_API_IMPORT
+#endif
 #endif
 
 #if ENABLE_LOGGER
@@ -203,13 +227,10 @@ typedef std::uint64_t uint64;
 #define DEBUG_LOG(...)
 #endif
 #else
-#define DEBUG_LOG(...) { printf(__VA_ARGS__); printf("\n"); }
+#define DEBUG_LOG(...) { fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n"); }
+#define ERROR_LOG(...) { fprintf(stderr, __VA_ARGS___); fprintf(stderr, "\n"); }
 #endif
 
 #include "BitStream.h"
-
-#define SYNCED_CLASS_BODY(...)
-#define SYNCED_PROPERTY(...)
-#define SYNCED_PROPERTY_FUNC(...)
 
 #endif // kNet_Common_h

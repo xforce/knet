@@ -66,7 +66,7 @@ namespace knet
 
 #define MAX_MTU_SIZE 1492
 #ifdef WIN32
-	typedef int socklen_t;
+	using socketlen_t = int32;
 #else
 	typedef unsigned int socklen_t;
 #endif

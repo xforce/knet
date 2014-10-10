@@ -86,7 +86,7 @@ namespace knet
 	template<typename... Args>
 	class EventN : public Event
 	{
-		typedef std::tuple<Args...> argTuple;
+		using argTuple = std::tuple<Args...>;
 	private:
 		std::function<bool(Args... arg)> callback;
 	public:
@@ -175,8 +175,8 @@ namespace knet
 	struct function_traits<R(Args...)>
 	{
 	public:
-		typedef std::tuple<Args...> argTuple;
-		typedef remove_first_type<argTuple> argTup;
+		using argTuple = std::tuple<Args...>;
+		using argTup = remove_first_type<argTuple>;
 
 		using return_type = R;
 

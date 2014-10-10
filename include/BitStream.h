@@ -39,10 +39,10 @@
 
 namespace knet
 {
-	class BitStream
+	class KNET_API BitStream
 	{
 	public:
-		typedef unsigned char baseType;
+		using baseType = uint8;
 
 
 	private:
@@ -53,15 +53,13 @@ namespace knet
 
 		baseType stackData[BITSTREAM_STACK_SIZE];
 
-		
+
 	public:
 		BitStream();
 		BitStream(size_t initialBytes);
 		BitStream(BitStream &&other);
 		BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData);
 		virtual ~BitStream();
-
-		// TODO: add aligntobyteboundary method
 
 		void Reset()
 		{
@@ -79,7 +77,7 @@ namespace knet
 		*/
 		bool AllocateBits(size_t numberOfBits);
 
-		
+
 		void SetReadOffset(size_t readOffset);
 
 		/*
@@ -92,42 +90,10 @@ namespace knet
 
 		void AddWriteOffset(size_t writeOffset);
 		/*
-		* 
+		*
 		*/
 		void Write1();
 		void Write0();
-
-		bool WriteBits(const unsigned char *data, size_t  numberOfBits);
-
-
-		char * Data()
-		{
-			return (char*)pData;
-		}
-
-		size_t Size()
-		{
-			return BITS_TO_BYTES(bitsUsed);
-		}
-
-		template<typename T>
-		inline bool Write(const T& value)
-		{
-			return Write((unsigned char*)&value, sizeof(T));
-		}
-
-		inline bool Write(const bool& value)
-		{
-			(value ? Write1() : Write0());
-			return true;
-		}
-
-		bool Write(const unsigned char *data, size_t size);
-		bool Write(const char* data, size_t size);
-		bool Write(const std::string &str);
-		
-
-		/* Read functions */
 
 		inline bool ReadBit()
 		{
@@ -136,18 +102,92 @@ namespace knet
 			return result;
 		}
 
+		bool WriteBits(const unsigned char *data, size_t numberOfBits);
+		bool Write(const unsigned char *data, size_t size);
+		bool Write(const char* data, size_t size);
+
+		char * Data()
+		{
+			return (char*) pData;
+		}
+
+		size_t Size()
+		{
+			return BITS_TO_BYTES(bitsUsed);
+		}
+
+		// At least 2 parameters
+		template<typename T, typename T2, typename ...Ts>
+		inline
+		typename std::enable_if<std::is_pointer<T>::value == false, bool>::type
+		Write(const T& value, const T2 &value2, const Ts&... values)
+		{
+			using ltype_const = typename std::remove_reference<T>::type;
+			using ltype = typename std::remove_const<ltype_const>::type;
+
+			if (!Write<ltype>(value))
+				return false;
+
+			return Write<T2, Ts...>(value2, values...);
+		}
+
+		template<typename T>
+		inline bool Write(const T& value)
+		{
+			return Write((const unsigned char*) &value, sizeof(T));
+		}
+
+		template<>
+		bool Write<std::string>(const std::string &str);
+
+		inline bool Write(const bool& value)
+		{
+			(value ? Write1() : Write0());
+			return true;
+		}
+
+
+
 		bool ReadBits(char *pData, size_t  numberOfBits);
 		bool Read(char *pData, size_t size);
+
+		// At least 2 parameters
+		template<typename T, typename T2, typename ...Ts>
+		inline
+		typename std::enable_if<std::is_pointer<T>::value == false, bool>::type
+		Read(T&& value, T2&& value2, Ts&&... values)
+		{
+			using ltype = typename std::remove_reference<T>::type;
+
+			if (!Read<ltype>(::std::forward<T>(value)))
+				return false;
+
+			return Read(::std::forward<T2>(value2), ::std::forward<Ts...>(values)...);
+		}
 
 		template<typename T>
 		inline bool Read(T& value)
 		{
-			return Read((char*)&value, sizeof(T));
+			return Read((char*) &value, sizeof(T));
 		}
 
-		inline bool Read(bool &value)
+		template<>
+		inline bool Read<bool>(bool &value)
 		{
 			value = ReadBit();
+			return true;
+		}
+
+		template<>
+		inline bool Read<std::string>(std::string &value)
+		{
+			auto size = value.size();
+			Read(size);
+
+			value.resize(size);
+
+			Read((char*) value.data(), size);
+
 			return true;
 		}
 
@@ -156,27 +196,22 @@ namespace knet
 
 	public: /* Stream operators */
 
-		BitStream& operator<<(const std::string &str)
-		{
-			Write(str);
-			return *this;
-		}
-
 		template<typename T>
-		inline BitStream& operator<<(const T &value)
+		inline BitStream& operator<<(const T &&value)
 		{
-			Write((unsigned char*)&value, sizeof(T));
+			Write(::std::forward<T>(value));
 
 			return *this;
 		}
 
 		template<typename T>
-		inline BitStream& operator>>(const T &value)
+		inline BitStream& operator>>(T &&value)
 		{
-			Read((char*)&value, sizeof(T));
+			Read(::std::forward<T>(value));
 
 			return *this;
 		}
-		
+
 	};
-};
+
+NAMESPACE_KNET_END

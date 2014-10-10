@@ -58,7 +58,7 @@ namespace knet
 		MAX,
 	};
 
-	typedef uint16 OrderedIndexType;
+	using OrderedIndexType = uint16;
 
 	struct OrderedInfo
 	{
@@ -73,7 +73,7 @@ namespace knet
 		uint8 isEnd = false;
 	};
 
-	typedef uint16 SequenceIndexType;
+	using SequenceIndexType = uint16;
 
 	struct SequenceInfo
 	{

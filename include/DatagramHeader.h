@@ -36,7 +36,7 @@
 namespace knet
 {
 
-	typedef int32 SequenceNumberType;
+	using SequenceNumberType = int32;
 
 	class DatagramHeader
 	{

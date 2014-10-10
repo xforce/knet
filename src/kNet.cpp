@@ -51,6 +51,24 @@ int main(int argc, char** argv)
 	});
 #endif
 
+	knet::BitStream bit;
+
+	std::string str1 = "Hallo1";
+
+	std::string str2 = "Hallo2";
+
+	bit.Write(str1, str2);
+	bit.Write(str1);
+
+	str1 = "";
+	str2 = "";
+
+	bit.SetReadOffset(0);
+
+	bit.Read(str1, str2);
+
+	DEBUG_LOG("%s %s\n", str1.c_str(), str2.c_str());
+
 	DEBUG_LOG("%d", sizeof(knet::OrderedInfo));
 
 	if(argc > 1)
@@ -260,6 +278,9 @@ int main(int argc, char** argv)
 
 	DEBUG_LOG("Startup [performance]");
 
+
+
+
 	peer1 = new knet::Peer();
 	peer2 = new knet::Peer();
 	peer3 = new knet::Peer();
@@ -285,7 +306,6 @@ int main(int argc, char** argv)
 
 	for (;;)
 	{
-
 		if (count != 0)
 			packetsPerSec = (float)count / (float)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
@@ -306,35 +326,5 @@ int main(int argc, char** argv)
 		peer1->Process();
 		peer2->Process();
 		peer3->Process();
-
-		//std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
 	}
-
-
-#pragma region Old BitStream Test Code
-	//knet::BitStream bit;
-	//const char  *keks = "Hallo wie gehts!";
-	//bit.Write((unsigned char*)keks, strlen("Hallo wie gehts!") + 1);
-	//bit.Write((unsigned char*)keks, strlen("Hallo wie gehts!") + 1);
-
-	//int keks2 = 10000;
-	//bit << keks2;
-
-	//char * read = new char[strlen("Hallo wie gehts!") + 1];
-	//bit.Read(read, strlen("Hallo wie gehts!") + 1);
-	//puts(read);
-	//puts("\n");
-
-	//memset(read, 0, strlen("Hallo wie gehts!") + 1);
-	//bit.Read(read, strlen("Hallo wie gehts!") + 1);
-	//puts(read);
-	//puts("\n");
-
-	//int hallo = 0;
-	//bit >> hallo;
-
-	//DEBUG_LOG("Kekse it works: %d", hallo);
-
-#pragma endregion
 }

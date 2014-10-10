@@ -29,7 +29,7 @@
 				}],
 			],
 			'defines': [
-				'kNet_EXPORTS',
+				'KNET_EXPORTS',
 				'NOMINMAX',
 			],
 			'include_dirs': [
