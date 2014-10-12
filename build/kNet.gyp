@@ -5,7 +5,7 @@
 	'targets': [
 		{
 			'target_name': 'kNet',
-			'type': 'executable',
+			'type': 'shared_library',
 			'conditions': [
 				['logger_enabled=="true"', {
 					'defines': [
@@ -38,6 +38,57 @@
 			'sources': [
 				'<!@(find ../src -name *.cpp)',
 				'<!@(find ../include -name *.h)',
+			],
+		},
+		{
+			'target_name': 'gtest',
+			'type': 'static_library',
+			'conditions': [
+				['OS=="win"', {
+					'defines': [
+						'WIN32_LEAN_AND_MEAN',
+						'_WINSOCK_DEPRECATED_NO_WARNINGS',
+					],
+				}],
+			],
+			'defines': [
+				'NOMINMAX',
+			],
+			'include_dirs': [
+				'../vendor/googletest',
+				'../vendor/googletest/include',
+			],
+			'sources': [
+				'../vendor/googletest/src/gtest-all.cc',
+				'../vendor/googletest/src/gtest_main.cc',
+			],
+		},
+		{
+			'target_name': 'kNet_tests',
+			'type': 'executable',
+			'dependencies': [
+				'gtest',
+				'kNet',
+			],
+			'conditions': [
+				['OS=="win"', {
+					'defines': [
+						'WIN32_LEAN_AND_MEAN',
+						'_WINSOCK_DEPRECATED_NO_WARNINGS',
+					],
+				}],
+			],
+			'defines': [
+				'NOMINMAX',
+			],
+			'include_dirs': [
+				'../include',
+				'../vendor/googletest',
+				'../vendor/googletest/include',
+			],
+			'sources': [
+				'<!@(find ../test -name *.cpp)',
+				'<!@(find ../test -name *.h)',
 			],
 		},
 	]

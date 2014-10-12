@@ -910,7 +910,7 @@ namespace knet
 
 		// This seems to cause a bug sometimes
 		// But only a this position, we do it below and everything works fine
-		// I still dont know why
+		// I still do not know why
 		// I have tested this on Windows with Visual Studio 2013 Visual C++ Compiler Nov 2013 (CTP) and there it seems to work fine,
 		// so it seems only broken on Linux/GCC
 		//acknowledgements.shrink_to_fit();

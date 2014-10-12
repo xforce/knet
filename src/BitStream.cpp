@@ -33,12 +33,12 @@
 namespace knet
 {
 
-	BitStream::BitStream()
+	BitStream::BitStream() noexcept
 		: BitStream(10)
 	{
 	}
 
-	BitStream::BitStream(size_t initialBytes)
+	BitStream::BitStream(size_t initialBytes) noexcept
 	{
 		if (initialBytes < BITSTREAM_STACK_SIZE)
 		{
@@ -48,12 +48,12 @@ namespace knet
 		else
 		{
 			// TODO: track avg to make allocation to better fit the need
-			pData = (decltype(pData)) malloc(initialBytes);
+			pData = *new decltype(pData)[initialBytes];
 			bitsAllocated = BYTES_TO_BITS(initialBytes);
 		}
 	}
 
-	BitStream::BitStream(BitStream &&other)
+	BitStream::BitStream(BitStream &&other) noexcept
 	{
 		if (pData != stackData)
 			if (pData)
@@ -74,7 +74,7 @@ namespace knet
 		other.readOffset = 0;
 	}
 
-	BitStream::BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData)
+	BitStream::BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData) noexcept
 	{
 		bitsUsed = BYTES_TO_BITS(lengthInBytes);
 		readOffset = 0;
@@ -106,7 +106,7 @@ namespace knet
 			pData = (unsigned char*) _data;
 	}
 
-	BitStream::~BitStream()
+	BitStream::~BitStream() noexcept
 	{
 		if (pData != stackData)
 			if (pData)
@@ -117,7 +117,7 @@ namespace knet
 		readOffset = 0;
 	}
 
-	bool BitStream::AllocateBits(size_t numberOfBits)
+	bool BitStream::AllocateBits(size_t numberOfBits) noexcept
 	{
 		size_t newBitsAllocated = bitsAllocated + numberOfBits;
 
@@ -143,7 +143,7 @@ namespace knet
 		return true;
 	}
 
-	bool BitStream::PrepareWrite(size_t bitsToWrite)
+	bool BitStream::PrepareWrite(size_t bitsToWrite) noexcept
 	{
 		if ((bitsAllocated - bitsUsed) >= bitsToWrite)
 			return true;
@@ -153,7 +153,7 @@ namespace knet
 		}
 	}
 
-	void BitStream::Write0()
+	void BitStream::Write0() noexcept
 	{
 		PrepareWrite(1);
 
@@ -164,7 +164,7 @@ namespace knet
 		++bitsUsed;
 	}
 
-	void BitStream::Write1()
+	void BitStream::Write1() noexcept
 	{
 		PrepareWrite(1);
 
@@ -178,7 +178,7 @@ namespace knet
 		++bitsUsed;
 	}
 
-	bool BitStream::Write(const unsigned char *data, size_t size)
+	bool BitStream::Write(const unsigned char *data, size_t size) noexcept
 	{
 		PrepareWrite(BYTES_TO_BITS(size));
 
@@ -196,7 +196,7 @@ namespace knet
 		}
 	}
 
-	bool BitStream::Write(const char *pData, size_t size)
+	bool BitStream::Write(const char *pData, size_t size) noexcept
 	{
 		PrepareWrite(BYTES_TO_BITS(size));
 
@@ -217,7 +217,7 @@ namespace knet
 	}
 
 
-	bool BitStream::WriteBits(const unsigned char *pData, size_t  numberOfBits)
+	bool BitStream::WriteBits(const unsigned char *pData, size_t  numberOfBits) noexcept
 	{
 		const size_t numberOfBitsUsedMod8 = bitsUsed & 7;
 
@@ -261,7 +261,7 @@ namespace knet
 	}
 
 
-	bool BitStream::Read(char *pData, size_t size)
+	bool BitStream::Read(char *pData, size_t size) noexcept
 	{
 		if ((readOffset & 7) == 0)
 		{
@@ -278,7 +278,7 @@ namespace knet
 		return true;
 	}
 
-	bool BitStream::ReadBits(char *pData, size_t  numberOfBits)
+	bool BitStream::ReadBits(char *pData, size_t  numberOfBits) noexcept
 	{
 		if (numberOfBits <= 0)
 			return false;
@@ -317,7 +317,7 @@ namespace knet
 				}
 				else
 				{
-					readOffset += 8 + (numberOfBits - 8);
+					readOffset += numberOfBits;
 					return true;
 				}
 			}
@@ -327,26 +327,27 @@ namespace knet
 	}
 
 	template <>
-	bool BitStream::Write<std::string>(const std::string & str)
+	bool BitStream::Write<std::string>(const std::string & str) noexcept
 	{
 		return (Write(str.size())
 			&& Write((unsigned char*) str.c_str(), str.size()));
 	}
 
 
-	void BitStream::SetReadOffset(size_t readOffset)
+	void BitStream::SetReadOffset(size_t readOffset) noexcept
 	{
 		this->readOffset = readOffset;
 	}
 
-	void BitStream::SetWriteOffset(size_t writeOffset)
+	void BitStream::SetWriteOffset(size_t writeOffset) noexcept
 	{
 		PrepareWrite(writeOffset - this->bitsUsed);
 
 		bitsUsed = writeOffset;
 	}
 
-	void BitStream::AddWriteOffset(size_t writeOffset)
+	// Add write offset in bits
+	void BitStream::AddWriteOffset(size_t writeOffset) noexcept
 	{
 		PrepareWrite(this->bitsUsed + writeOffset);
 
@@ -355,7 +356,7 @@ namespace knet
 
 #pragma region operators
 
-	bool BitStream::operator=(const BitStream &right)
+	bool BitStream::operator=(const BitStream &right) noexcept
 	{
 		PrepareWrite(right.bitsUsed);
 
@@ -366,7 +367,7 @@ namespace knet
 		return true;
 	}
 
-	bool BitStream::operator=(BitStream &&right)
+	bool BitStream::operator=(BitStream &&right) noexcept
 	{
 		if (pData != stackData)
 			if (pData)

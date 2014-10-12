@@ -107,7 +107,6 @@ int main(int argc, char** argv)
 		
 	}
 
-
 #pragma region Speed Test
 #if 0
 	std::random_device rd;

@@ -34,7 +34,7 @@
 
 namespace knet
 {
-	Peer::Peer()
+	Peer::Peer() noexcept
 	{
 		// Create the local socket
 		pSocket = std::make_shared<BerkleySocket>();
@@ -52,7 +52,7 @@ namespace knet
 		DEBUG_LOG("Local ReliabilityLayer {%p}", &reliabilityLayer);
 	}
 
-	Peer::~Peer()
+	Peer::~Peer() noexcept
 	{
 		pSocket->GetEventHandler().RemoveEventsByOwner(this);
 		reliabilityLayer.GetEventHandler().RemoveEventsByOwner(this);
@@ -63,12 +63,12 @@ namespace knet
 		}
 	}
 
-	std::shared_ptr<knet::ISocket> Peer::GetSocket()
+	std::shared_ptr<knet::ISocket> Peer::GetSocket() noexcept
 	{
 		return pSocket;
 	}
 
-	void Peer::Start(const std::string & strAddress, uint16 usPort)
+	void Peer::Start(const std::string & strAddress, uint16 usPort) noexcept
 	{
 		knet::SocketBindArguments bi;
 
@@ -80,7 +80,7 @@ namespace knet
 	}
 
 
-	void Peer::Connect(const std::string &strRemoteAddress, uint16 usPort)
+	void Peer::Connect(const std::string &strRemoteAddress, uint16 usPort) noexcept
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -114,7 +114,7 @@ namespace knet
 		DEBUG_LOG("Send");
 	}
 
-	void Peer::Process()
+	void Peer::Process() noexcept
 	{
 		reliabilityLayer.Process();
 
@@ -148,7 +148,7 @@ namespace knet
 
 	}
 
-	void Peer::Send(System &peer, const char * data, size_t len, bool im)
+	void Peer::Send(System &peer, const char * data, size_t len, bool im) noexcept
 	{
 		if (isConnected)
 		{
@@ -162,7 +162,7 @@ namespace knet
 
 #pragma region EventHandler stuff
 
-	bool Peer::OnReceive(InternalRecvPacket* pPacket)
+	bool Peer::OnReceive(InternalRecvPacket* pPacket) noexcept
 	{
 		// If its a known system distribute the packet to the systems reliability layer
 		for (auto &system : remoteSystems)
@@ -179,7 +179,7 @@ namespace knet
 		return true;
 	}
 
-	bool Peer::HandleDisconnect(SocketAddress address, DisconnectReason reason)
+	bool Peer::HandleDisconnect(SocketAddress address, DisconnectReason reason) noexcept
 	{
 		UNREFERENCED_PARAMETER(reason);
 
@@ -202,7 +202,7 @@ namespace knet
 		return false;
 	}
 
-	bool Peer::HandlePacket(ReliablePacket &packet, SocketAddress& remoteAddress)
+	bool Peer::HandlePacket(ReliablePacket &packet, SocketAddress& remoteAddress) noexcept
 	{
 		auto pData = packet.Data();
 
@@ -260,7 +260,7 @@ namespace knet
 		return false;
 	};
 
-	bool Peer::HandleNewConnection(InternalRecvPacket * pPacket)
+	bool Peer::HandleNewConnection(InternalRecvPacket * pPacket) noexcept
 	{
 		if (remoteSystems.size() >= maxConnections)
 		{

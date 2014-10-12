@@ -37,8 +37,6 @@
 #include "Sockets/BerkleySocket.h"
 #include "ReliabilityLayer.h"
 
-
-
 namespace knet
 {
 	// TODO: clean up
@@ -68,25 +66,25 @@ namespace knet
 		uint32 activeSystems = 0;
 
 	public:
-		Peer();
-		~Peer();
+		Peer() noexcept;
+		virtual ~Peer() noexcept;
 
-		std::shared_ptr<knet::ISocket> GetSocket();
+		std::shared_ptr<knet::ISocket> GetSocket() noexcept;
 
-		void Start(const std::string &strAddress, uint16 usPort);
+		void Start(const std::string &strAddress, uint16 usPort) noexcept;
 
-		void Send(System &peer, const char * data, size_t len, bool im = false);
+		void Send(System &peer, const char * data, size_t len, bool im = false) noexcept;
 
-		void Connect(const std::string &strRemoteAddress, uint16 usPort);
+		void Connect(const std::string &strRemoteAddress, uint16 usPort) noexcept;
 
-		void Process();
+		void Process() noexcept;
 
 	private:
 		/* Event handlers */
-		bool OnReceive(knet::InternalRecvPacket* pPacket);
-		bool HandleDisconnect(knet::SocketAddress address, knet::DisconnectReason reason);
-		bool HandleNewConnection(knet::InternalRecvPacket * pPacket);
-		bool HandlePacket(knet::ReliablePacket &packet, knet::SocketAddress& remoteAddress);
+		bool OnReceive(knet::InternalRecvPacket* pPacket) noexcept;
+		bool HandleDisconnect(knet::SocketAddress address, knet::DisconnectReason reason) noexcept;
+		bool HandleNewConnection(knet::InternalRecvPacket * pPacket) noexcept;
+		bool HandlePacket(knet::ReliablePacket &packet, knet::SocketAddress& remoteAddress) noexcept;
 	
 	};
 

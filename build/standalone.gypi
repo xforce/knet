@@ -175,7 +175,7 @@
           '-Wno-unused-parameter',
           '-Wno-long-long',
           '-pthread',
-          #'-fno-exceptions',
+          '-fno-exceptions',
           '-pedantic',
           # Don't warn about the "struct foo f = {0};" initialization pattern.
           '-Wno-missing-field-initializers',
@@ -201,7 +201,7 @@
           '<(werror)',
           '-W',
           '-Wno-unused-parameter',
-          #'-fno-exceptions',
+          '-fno-exceptions',
           # Don't warn about the "struct foo f = {0};" initialization pattern.
           '-Wno-missing-field-initializers',
         ],
@@ -237,7 +237,7 @@
         'conditions': [
           ['component=="static_library"', {
             'defines': [
-              '_HAS_EXCEPTIONS=1',
+              '_HAS_EXCEPTIONS=0',
             ],
           }],
         ],
@@ -302,7 +302,7 @@
           'GCC_CW_ASM_SYNTAX': 'NO',                # No -fasm-blocks
           'GCC_DYNAMIC_NO_PIC': 'NO',               # No -mdynamic-no-pic
                                                     # (Equivalent to -fPIC)
-          'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',        # -fno-exceptions
+          'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',        # -fno-exceptions
           'GCC_ENABLE_CPP_RTTI': 'YES',              # -fno-rtti
           'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
           # GCC_INLINES_ARE_PRIVATE_EXTERN maps to -fvisibility-inlines-hidden

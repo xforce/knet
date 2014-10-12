@@ -55,19 +55,19 @@ namespace knet
 
 
 	public:
-		BitStream();
-		BitStream(size_t initialBytes);
-		BitStream(BitStream &&other);
-		BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData);
-		virtual ~BitStream();
+		BitStream() noexcept;
+		BitStream(size_t initialBytes) noexcept;
+		BitStream(BitStream &&other) noexcept;
+		BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData) noexcept;
+		virtual ~BitStream() noexcept;
 
-		void Reset()
+		void Reset() noexcept
 		{
 			readOffset = 0;
 			bitsUsed = 0;
 		}
 
-		size_t ReadOffset()
+		size_t ReadOffset() noexcept
 		{
 			return readOffset;
 		}
@@ -75,43 +75,43 @@ namespace knet
 		/*
 		* Checks for free bits and allocates the needed number of bytes to fit the data
 		*/
-		bool AllocateBits(size_t numberOfBits);
+		bool AllocateBits(size_t numberOfBits) noexcept;
 
 
-		void SetReadOffset(size_t readOffset);
+		void SetReadOffset(size_t readOffset) noexcept;
 
 		/*
 		* This functions checks for available bits and add bit if needed
 		*/
-		bool PrepareWrite(size_t bitsToWrite);
+		bool PrepareWrite(size_t bitsToWrite) noexcept;
 
 
-		void SetWriteOffset(size_t writeOffset);
+		void SetWriteOffset(size_t writeOffset) noexcept;
 
-		void AddWriteOffset(size_t writeOffset);
+		void AddWriteOffset(size_t writeOffset) noexcept;
 		/*
 		*
 		*/
-		void Write1();
-		void Write0();
+		void Write1() noexcept;
+		void Write0() noexcept;
 
-		inline bool ReadBit()
+		inline bool ReadBit() noexcept
 		{
 			bool result = (pData[readOffset >> 3] & (0x80 >> (readOffset & 7))) != 0;
 			readOffset++;
 			return result;
 		}
 
-		bool WriteBits(const unsigned char *data, size_t numberOfBits);
-		bool Write(const unsigned char *data, size_t size);
-		bool Write(const char* data, size_t size);
+		bool WriteBits(const unsigned char *data, size_t numberOfBits) noexcept;
+		bool Write(const unsigned char *data, size_t size) noexcept;
+		bool Write(const char* data, size_t size) noexcept;
 
-		char * Data()
+		char * Data() noexcept
 		{
 			return (char*) pData;
 		}
 
-		size_t Size()
+		size_t Size() noexcept
 		{
 			return BITS_TO_BYTES(bitsUsed);
 		}
@@ -120,7 +120,7 @@ namespace knet
 		template<typename T, typename T2, typename ...Ts>
 		inline
 		typename std::enable_if<std::is_pointer<T>::value == false, bool>::type
-		Write(const T& value, const T2 &value2, const Ts&... values)
+		Write(const T& value, const T2 &value2, const Ts&... values) noexcept
 		{
 			using ltype_const = typename std::remove_reference<T>::type;
 			using ltype = typename std::remove_const<ltype_const>::type;
@@ -132,15 +132,15 @@ namespace knet
 		}
 
 		template<typename T>
-		inline bool Write(const T& value)
+		inline bool Write(const T& value) noexcept
 		{
-			return Write((const unsigned char*) &value, sizeof(T));
+			return Write(reinterpret_cast<const unsigned char*>(&value), sizeof(T));
 		}
 
 		template<>
-		bool Write<std::string>(const std::string &str);
+		bool Write<std::string>(const std::string &str) noexcept;
 
-		inline bool Write(const bool& value)
+		inline bool Write(const bool& value) noexcept
 		{
 			(value ? Write1() : Write0());
 			return true;
@@ -148,14 +148,14 @@ namespace knet
 
 
 
-		bool ReadBits(char *pData, size_t  numberOfBits);
-		bool Read(char *pData, size_t size);
+		bool ReadBits(char *pData, size_t  numberOfBits) noexcept;
+		bool Read(char *pData, size_t size) noexcept;
 
 		// At least 2 parameters
 		template<typename T, typename T2, typename ...Ts>
 		inline
 		typename std::enable_if<std::is_pointer<T>::value == false, bool>::type
-		Read(T&& value, T2&& value2, Ts&&... values)
+		Read(T&& value, T2&& value2, Ts&&... values) noexcept
 		{
 			using ltype = typename std::remove_reference<T>::type;
 
@@ -166,20 +166,20 @@ namespace knet
 		}
 
 		template<typename T>
-		inline bool Read(T& value)
+		inline bool Read(T& value) noexcept
 		{
 			return Read((char*) &value, sizeof(T));
 		}
 
 		template<>
-		inline bool Read<bool>(bool &value)
+		inline bool Read<bool>(bool &value) noexcept
 		{
 			value = ReadBit();
 			return true;
 		}
 
 		template<>
-		inline bool Read<std::string>(std::string &value)
+		inline bool Read<std::string>(std::string &value) noexcept
 		{
 			auto size = value.size();
 			Read(size);
@@ -191,13 +191,13 @@ namespace knet
 			return true;
 		}
 
-		bool operator=(const BitStream &right);
-		bool operator=(BitStream &&right);
+		bool operator=(const BitStream &right) noexcept;
+		bool operator=(BitStream &&right) noexcept;
 
 	public: /* Stream operators */
 
 		template<typename T>
-		inline BitStream& operator<<(const T &&value)
+		inline BitStream& operator<<(const T &&value) noexcept
 		{
 			Write(::std::forward<T>(value));
 
@@ -205,7 +205,7 @@ namespace knet
 		}
 
 		template<typename T>
-		inline BitStream& operator>>(T &&value)
+		inline BitStream& operator>>(T &&value) noexcept
 		{
 			Read(::std::forward<T>(value));
 
