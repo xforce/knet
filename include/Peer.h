@@ -43,7 +43,7 @@ namespace knet
 	class Peer
 	{
 	private:
-		std::shared_ptr<knet::ISocket> pSocket = nullptr;
+		std::shared_ptr<knet::ISocket> _socket = nullptr;
 
 		struct System
 		{

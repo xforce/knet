@@ -107,7 +107,18 @@ namespace knet
 
 		}
 
-		ReliablePacket(const ReliablePacket &other) = delete;
+
+		// Workaround to make it compile on windows, move only type in list in map e.g. std::map<int, std::vector<ReliablePacket>>
+		ReliablePacket(const ReliablePacket &other)
+		{
+			UNREFERENCED_PARAMETER(other);
+			assert(0);
+		}
+		ReliablePacket & operator=(const ReliablePacket &other)
+		{
+			UNREFERENCED_PARAMETER(other);
+			assert(0);
+		}
 
 		const char * Data()
 		{
@@ -211,9 +222,6 @@ namespace knet
 				+ (reliability == PacketReliability::UNRELIABLE_SEQUENCED ? sizeof(sequenceInfo) : 0)
 				+ sizeof(dataLength) + dataLength;
 		}
-
-		// Packets can not be copied
-		ReliablePacket & operator=(const ReliablePacket &other) = delete;
 
 		ReliablePacket & operator=(ReliablePacket &&other)
 		{

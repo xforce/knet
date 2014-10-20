@@ -12,6 +12,9 @@ namespace knet
 
 		std::vector<ReliablePacket> packets;
 
+		DatagramPacket & operator=(const DatagramPacket &other) = delete;
+		DatagramPacket(const DatagramPacket &other) = delete;
+
 		DatagramPacket()
 		{
 

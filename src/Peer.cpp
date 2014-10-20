@@ -37,10 +37,10 @@ namespace knet
 	Peer::Peer() noexcept
 	{
 		// Create the local socket
-		pSocket = std::make_shared<BerkleySocket>();
+		_socket = std::make_shared<BerkleySocket>();
 
 		// Now connect our peer with the socket
-		pSocket->GetEventHandler().AddEvent(SocketEvents::RECEIVE, mkEventN(&Peer::OnReceive, this), this);
+		_socket->GetEventHandler().AddEvent(SocketEvents::RECEIVE, mkEventN(&Peer::OnReceive, this), this);
 
 		// Now we want to handle the received packets in our reliabilityLayer
 		reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET,
@@ -54,7 +54,7 @@ namespace knet
 
 	Peer::~Peer() noexcept
 	{
-		pSocket->GetEventHandler().RemoveEventsByOwner(this);
+		_socket->GetEventHandler().RemoveEventsByOwner(this);
 		reliabilityLayer.GetEventHandler().RemoveEventsByOwner(this);
 
 		for(auto &system : remoteSystems)
@@ -65,7 +65,7 @@ namespace knet
 
 	std::shared_ptr<knet::ISocket> Peer::GetSocket() noexcept
 	{
-		return pSocket;
+		return _socket;
 	}
 
 	void Peer::Start(const std::string & strAddress, uint16 usPort) noexcept
@@ -75,8 +75,8 @@ namespace knet
 		bi.usPort = usPort;
 		bi.szHostAddress = strAddress;
 
-		pSocket->Bind(bi);
-		pSocket->StartReceiving();
+		_socket->Bind(bi);
+		_socket->StartReceiving();
 	}
 
 
@@ -93,25 +93,22 @@ namespace knet
 		dh.Serialize(bitStream);
 
 		bitStream.Write(PacketReliability::UNRELIABLE);
-		bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_REQUEST));
+		bitStream.Write<uint16>(sizeof(MessageID::CONNECTION_REQUEST));
 		bitStream.Write(MessageID::CONNECTION_REQUEST);
 
-		SocketAddress remoteAdd;
+		SocketAddress remoteAdd = { 0 };
 
 		memset(&remoteAdd.address.addr4, 0, sizeof(sockaddr_in));
 		remoteAdd.address.addr4.sin_port = htons(usPort);
 
-		//inet_pton(AF_INET, strRemoteAddress.c_str(), &remoteAdd.address.addr4.sin_addr);
-		
 		remoteAdd.address.addr4.sin_addr.s_addr = inet_addr(strRemoteAddress.c_str());
 		remoteAdd.address.addr4.sin_family = AF_INET;
 
-		if (GetSocket())
-			GetSocket()->Send(remoteAdd, bitStream.Data(), bitStream.Size());
+		// Send the connection request to the remote
+		if (_socket)
+			_socket->Send(remoteAdd, bitStream.Data(), bitStream.Size());
 		else
 			DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
-
-		DEBUG_LOG("Send");
 	}
 
 	void Peer::Process() noexcept
@@ -152,7 +149,7 @@ namespace knet
 	{
 		if (isConnected)
 		{
-			peer.reliabilityLayer.Send((char*) data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
+			peer.reliabilityLayer.Send(data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
 		}
 		else
 			DEBUG_LOG("Not connected");
@@ -279,7 +276,7 @@ namespace knet
 			bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_REFUSED));
 			bitStream.Write(MessageID::CONNECTION_REFUSED);
 
-			this->pSocket->Send(pPacket->remoteAddress, bitStream.Data(), bitStream.Size());
+			this->_socket->Send(pPacket->remoteAddress, bitStream.Data(), bitStream.Size());
 			return false;
 		}
 
@@ -296,7 +293,7 @@ namespace knet
 
 		auto system = std::make_shared<System>();
 		system->reliabilityLayer.SetRemoteAddress(pPacket->remoteAddress);
-		system->reliabilityLayer.SetSocket(this->pSocket);
+		system->reliabilityLayer.SetSocket(this->_socket);
 
 		// we want all handle events in our peer
 		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET,

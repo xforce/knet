@@ -42,6 +42,7 @@
 #include <mutex>
 #include <queue>
 #include <bitset>
+#include <unordered_map>
 
 namespace knet
 {
@@ -110,16 +111,19 @@ namespace knet
 		/* Types/structs used internally in Reliability Layer */
 		struct RemoteSystem
 		{
-			std::shared_ptr<ISocket> pSocket = nullptr;
+			std::shared_ptr<ISocket> _socket = nullptr;
 			SocketAddress address;
 
 			bool operator==(const RemoteSystem& system) const
 			{
-				return(pSocket == system.pSocket && address == system.address);
+				return(_socket == system._socket && address == system.address);
 			}
 		};
 
 	private:
+		ReliabilityLayer& operator=(const ReliabilityLayer&) = delete;
+		ReliabilityLayer(const ReliabilityLayer&) = delete;
+
 		std::shared_ptr<ISocket> m_pSocket = nullptr;
 		SocketAddress m_RemoteSocketAddress;
 
@@ -129,51 +133,30 @@ namespace knet
 
 		EventHandler<ReliabilityEvents> eventHandler;
 
+		using milliSecondsPoint = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
+
 		std::chrono::milliseconds m_msTimeout = std::chrono::milliseconds(10000);
-		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> firstUnsentAck;
-		std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> lastReceiveFromRemote;
+		milliSecondsPoint firstUnsentAck;
+		milliSecondsPoint lastReceiveFromRemote;
 
 		std::mutex bufferMutex;
-
-		// This is a mess, fuck MS for not using constexpr in numeric_limits
-#if WIN32
-		std::array<OrderedIndexType, 255> orderingIndex;
-#else
-		std::array<uint16, std::numeric_limits<decltype(orderingChannel)>::max()> orderingIndex;
-#endif
-
-		std::array<SequenceIndexType, 255> sequencingIndex;
 
 		std::queue<InternalRecvPacket*> bufferedPacketQueue;
 
 		std::vector<RemoteSystem> remoteList;
 		std::vector<SequenceNumberType> acknowledgements;
+		std::vector<std::pair<milliSecondsPoint, std::unique_ptr<DatagramPacket>>> resendBuffer;
 
-
+		std::array<OrderedIndexType, 255> orderingIndex;
+		std::array<SequenceIndexType, 255> sequencingIndex;
 		std::array<std::vector<ReliablePacket>, static_cast<std::size_t>(PacketPriority::IMMEDIATE)> sendBuffer;
-
-		std::vector<std::pair<std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>, std::unique_ptr<DatagramPacket>>> resendBuffer;
-
-#if WIN32
 		std::array<std::vector<ReliablePacket>, 255> orderedPacketBuffer;
-#else
-		std::array<std::vector<ReliablePacket>, std::numeric_limits<decltype(orderingChannel)>::max()> orderedPacketBuffer;
-#endif
-
-#if WIN32
-		std::array<std::vector<ReliablePacket>, 65535> splitPacketBuffer;
-#else
-		std::array<std::vector<ReliablePacket>, std::numeric_limits<uint16>::max()> splitPacketBuffer;
-#endif
-
-#if WIN32
+		
 		std::array<uint16, 255> lastOrderedIndex;
-#else
-		std::array<uint16, std::numeric_limits<decltype(orderingChannel)>::max()> lastOrderedIndex;
-#endif
-
 		std::array<uint16, 255> highestSequencedReadIndex;
 
+
+		std::unordered_map<uint16, std::vector<ReliablePacket>> splitPacketBuffer;
 	private:
 		/* Methods */
 		void SendACKs();
@@ -181,14 +164,14 @@ namespace knet
 
 		bool ProcessPacket(InternalRecvPacket *pPacket, std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
 
-		void ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
-		void ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
-		void ProcessSend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime);
+		void ProcessResend(milliSecondsPoint &curTime);
+		void ProcessOrderedPackets(milliSecondsPoint &curTime);
+		void ProcessSend(milliSecondsPoint &curTime);
 
 		bool SplitPacket(ReliablePacket & packet, DatagramPacket ** pDatagramPacket);
 
 	public:
-		ReliabilityLayer(ISocket * pSocket = nullptr);
+		ReliabilityLayer(ISocket * _socket = nullptr);
 		virtual ~ReliabilityLayer();
 
 		void Send(const char *data, size_t numberOfBitsToSend, PacketPriority priority = PacketPriority::MEDIUM, PacketReliability reliability = PacketReliability::RELIABLE);
@@ -232,9 +215,9 @@ namespace knet
 
 		//! Sets the socket used to send packets
 		/*!
-		\param[in] pSocket Socket used to send packets
+		\param[in] _socket Socket used to send packets
 		*/
-		void SetSocket(std::shared_ptr<ISocket> pSocket);
+		void SetSocket(std::shared_ptr<ISocket> _socket);
 
 		
 		//! Gets the remote Socket address

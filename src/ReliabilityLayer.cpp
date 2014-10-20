@@ -34,8 +34,8 @@ namespace knet
 {
 	static const std::chrono::milliseconds resendTime = std::chrono::milliseconds(10000);
 
-	ReliabilityLayer::ReliabilityLayer(ISocket * pSocket)
-		: m_pSocket(pSocket)
+	ReliabilityLayer::ReliabilityLayer(ISocket * _socket)
+		: m_pSocket(_socket)
 	{
 		firstUnsentAck = firstUnsentAck.min();
 		lastReceiveFromRemote = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
@@ -238,7 +238,7 @@ namespace knet
 #pragma endregion
 	}
 
-	void ReliabilityLayer::ProcessResend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	void ReliabilityLayer::ProcessResend(milliSecondsPoint &curTime)
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -268,7 +268,7 @@ namespace knet
 		}
 	}
 
-	void ReliabilityLayer::ProcessOrderedPackets(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	void ReliabilityLayer::ProcessOrderedPackets(milliSecondsPoint &curTime)
 	{
 		UNREFERENCED_PARAMETER(curTime);
 
@@ -352,7 +352,7 @@ namespace knet
 		}
 	}
 
-	void ReliabilityLayer::ProcessSend(std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> &curTime)
+	void ReliabilityLayer::ProcessSend(milliSecondsPoint &curTime)
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -751,6 +751,12 @@ namespace knet
 
 						// handle split packets
 
+						// Check if its already in the map
+						if (splitPacketBuffer.find(packet.splitInfo.packetIndex) != splitPacketBuffer.end())
+						{
+							splitPacketBuffer.emplace(packet.splitInfo.index, std::move(std::vector<ReliablePacket>{}));
+						}
+
 						if (packet.splitInfo.index == 0)
 						{
 							// Check if this index is already in use
@@ -773,7 +779,7 @@ namespace knet
 							//
 							BitStream bitStream{MAX_MTU_SIZE};
 
-							std::sort(splitPacketBuffer[packet.splitInfo.packetIndex].begin(), splitPacketBuffer[packet.splitInfo.packetIndex].end(), [](const ReliablePacket &packet, const ReliablePacket &packet_) -> bool
+							std::sort(splitPacketBuffer.at(packet.splitInfo.packetIndex).begin(), splitPacketBuffer.at(packet.splitInfo.packetIndex).end(), [](const ReliablePacket &packet, const ReliablePacket &packet_) -> bool
 							{
 								return (packet.splitInfo.index < packet_.splitInfo.index);
 							});
@@ -790,8 +796,7 @@ namespace knet
 
 							DEBUG_LOG("Got Packet with %d and %d", completePacket.Size(), strlen(completePacket.Data()));
 
-							splitPacketBuffer[packet.splitInfo.packetIndex].clear();
-							splitPacketBuffer[packet.splitInfo.packetIndex].shrink_to_fit();
+							splitPacketBuffer.erase(packet.splitInfo.packetIndex);
 
 							if (completePacket.reliability == PacketReliability::RELIABLE_ORDERED)
 							{
@@ -867,7 +872,7 @@ namespace knet
 
 		RemoteSystem system;
 
-		system.pSocket = pPacket->pSocket;
+		system._socket = pPacket->_socket;
 		system.address = pPacket->remoteAddress;
 		remoteList.push_back(std::move(system));
 
@@ -883,12 +888,12 @@ namespace knet
 		return m_pSocket;
 	}
 
-	void ReliabilityLayer::SetSocket(std::shared_ptr<ISocket> pSocket)
+	void ReliabilityLayer::SetSocket(std::shared_ptr<ISocket> _socket)
 	{
-		if (m_pSocket == pSocket)
+		if (m_pSocket == _socket)
 			return;
 
-		m_pSocket = pSocket;
+		m_pSocket = _socket;
 	}
 
 	const SocketAddress & ReliabilityLayer::GetRemoteAddress() const
@@ -1225,4 +1230,3 @@ namespace knet
 		return true;
 	};
 };
-

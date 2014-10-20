@@ -32,8 +32,17 @@
 
 #include "Common.h"
 
-#define BITS_TO_BYTES(x) (((x)+7)>>3)
-#define BYTES_TO_BITS(x) ((x)<<3)
+template<typename T>
+inline constexpr T BITS_TO_BYTES(T x)
+{
+	return (((x) +7) >> 3);
+}
+
+template<typename T>
+inline constexpr T BYTES_TO_BITS(T x)
+{
+	return ((x) << 3);
+}
 
 #define BITSTREAM_STACK_SIZE 256
 
@@ -42,7 +51,7 @@ namespace knet
 	class KNET_API BitStream
 	{
 	public:
-		using baseType = uint8;
+		using baseType = unsigned char;
 
 
 	private:
@@ -71,6 +80,11 @@ namespace knet
 		{
 			return readOffset;
 		}
+
+		inline void AlignWriteToByteBoundary() noexcept { bitsUsed += 8 - (((bitsUsed - 1) & 7) + 1); }
+
+		inline void AlignReadToByteBoundary() noexcept { readOffset += 8 - (((readOffset - 1) & 7) + 1); }
+
 
 		/*
 		* Checks for free bits and allocates the needed number of bytes to fit the data
@@ -154,7 +168,7 @@ namespace knet
 		// At least 2 parameters
 		template<typename T, typename T2, typename ...Ts>
 		inline
-		typename std::enable_if<std::is_pointer<T>::value == false, bool>::type
+		typename std::enable_if<std::is_pointer<T>::value == false, bool>::type // This makes 'bool Read(char *pData, size_t size) noexcept;' working
 		Read(T&& value, T2&& value2, Ts&&... values) noexcept
 		{
 			using ltype = typename std::remove_reference<T>::type;

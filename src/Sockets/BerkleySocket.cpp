@@ -247,7 +247,7 @@ namespace knet
 			// TODO: handle return
 			if (recvFromBlocking(m_Socket, *packet))
 			{
-				packet->pSocket = shared_from_this();
+				packet->_socket = shared_from_this();
 
 				if (eventHandler)
 				{

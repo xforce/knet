@@ -280,6 +280,8 @@ int main(int argc, char** argv)
 
 
 
+	DEBUG_LOG("Size %d", sizeof(knet::ReliabilityLayer));
+
 	peer1 = new knet::Peer();
 	peer2 = new knet::Peer();
 	peer3 = new knet::Peer();

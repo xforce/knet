@@ -47,8 +47,7 @@ namespace knet
 		}
 		else
 		{
-			// TODO: track avg to make allocation to better fit the need
-			pData = *new decltype(pData)[initialBytes];
+			pData = new unsigned char[initialBytes];
 			bitsAllocated = BYTES_TO_BITS(initialBytes);
 		}
 	}

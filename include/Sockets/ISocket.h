@@ -99,7 +99,7 @@ namespace knet
 		int bytesRead;
 		SocketAddress remoteAddress;
 		std::chrono::steady_clock::time_point timeStamp;
-		std::shared_ptr<ISocket> pSocket = nullptr;
+		std::shared_ptr<ISocket> _socket = nullptr;
 
 		InternalRecvPacket()
 		{
@@ -118,9 +118,9 @@ namespace knet
 			this->bytesRead = other.bytesRead;
 			this->timeStamp = std::move(other.timeStamp);
 			this->remoteAddress = std::move(other.remoteAddress);
-			this->pSocket = other.pSocket;
+			this->_socket = other._socket;
 
-			other.pSocket = 0;
+			other._socket = 0;
 			other.bytesRead = 0;
 		}
 
@@ -130,9 +130,9 @@ namespace knet
 			this->bytesRead = other.bytesRead;
 			this->timeStamp = std::move(other.timeStamp);
 			this->remoteAddress = std::move(other.remoteAddress);
-			this->pSocket = other.pSocket;
+			this->_socket = other._socket;
 
-			other.pSocket = 0;
+			other._socket = 0;
 			other.bytesRead = 0;
 
 			return *this;
