@@ -7,6 +7,6 @@ deps = {
 
 hooks = [
 	{
-		"action": ["python", "knet/build/gyp_vmp" ]
+		"action": ["python", "knet/build/gyp_knet" ]
 	}
 ]
