@@ -752,7 +752,7 @@ namespace knet
 						// handle split packets
 
 						// Check if its already in the map
-						if (splitPacketBuffer.find(packet.splitInfo.packetIndex) != splitPacketBuffer.end())
+						if (splitPacketBuffer.find(packet.splitInfo.packetIndex) == splitPacketBuffer.end())
 						{
 							splitPacketBuffer.emplace(packet.splitInfo.index, std::move(std::vector<ReliablePacket>{}));
 						}
