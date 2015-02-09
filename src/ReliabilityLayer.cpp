@@ -40,18 +40,12 @@ namespace knet
 		firstUnsentAck = firstUnsentAck.min();
 		lastReceiveFromRemote = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
-		for(uint32 i = 0; i < orderingIndex.size(); ++i)
-		{
-			orderingIndex[i] = 0;
-		}
-
-		for (uint32 i = 0; i < lastOrderedIndex.size(); ++i)
-		{
-			lastOrderedIndex[i] = 0;
-		}
+		std::fill(std::begin(lastOrderedIndex), std::end(lastOrderedIndex), 0);
+		std::fill(std::begin(orderingIndex), std::end(orderingIndex), 0);
 
 		highestSequencedReadIndex.fill(0);
 
+		// Use the better method, like numeric_limits
 		resendBuffer.reserve(512);
 	}
 
@@ -105,7 +99,7 @@ namespace knet
 	{
 		if (priority == PacketPriority::IMMEDIATE)
 		{
-			BitStream bitStream{BITS_TO_BYTES(numberOfBitsToSend) + 20};
+			BitStream bitStream{BitsToBytes(numberOfBitsToSend) + 20};
 
 			// Just send the packet
 			DatagramPacket* pDatagramPacket = new DatagramPacket;
@@ -126,7 +120,7 @@ namespace knet
 			}
 
 			pDatagramPacket->GetSizeToSend();
-			ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
+			ReliablePacket sendPacket{data, BitsToBytes(numberOfBitsToSend)};
 			sendPacket.reliability = reliability;
 			sendPacket.priority = priority;
 
@@ -158,7 +152,7 @@ namespace knet
 		}
 		else
 		{
-			ReliablePacket sendPacket{data, BITS_TO_BYTES(numberOfBitsToSend)};
+			ReliablePacket sendPacket{data, BitsToBytes(numberOfBitsToSend)};
 			sendPacket.reliability = reliability;
 			sendPacket.priority = priority;
 
@@ -214,28 +208,11 @@ namespace knet
 			pPacket = nullptr;
 		}
 
-#pragma region Ordered Packet stuff
-
 		ProcessOrderedPackets(curTime);
-
-#pragma endregion
-
-
-
-#pragma region Resend Stuff
 
 		ProcessResend(curTime);
 
-#pragma endregion
-
-
-
-
-#pragma region Send Stuff
-
 		ProcessSend(curTime);
-
-#pragma endregion
 	}
 
 	void ReliabilityLayer::ProcessResend(milliSecondsPoint &curTime)
@@ -244,13 +221,12 @@ namespace knet
 
 		auto curResendTime = curTime - resendTime;
 
-		/* I think it better to do it beforce sending the new packets because of stuff */
+		/* I think it better to do it before sending the new packets because of stuff */
 		for (auto &resendPacket : resendBuffer)
 		{
 			if(curResendTime > resendPacket.first)
 			{
 				bitStream.Reset();
-
 
 				// Is it better to add the packet to the send buffer? could be useful for later congestion control
 

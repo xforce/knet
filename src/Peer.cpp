@@ -149,7 +149,7 @@ namespace knet
 	{
 		if (isConnected)
 		{
-			peer.reliabilityLayer.Send(data, BYTES_TO_BITS(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
+			peer.reliabilityLayer.Send(data, BytesToBits(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
 		}
 		else
 			DEBUG_LOG("Not connected");

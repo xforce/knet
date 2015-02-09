@@ -39,7 +39,7 @@ TEST(BitStreamTest, WriteOffset)
 
 	knet::uint16 i = 10000;
 
-	bitStream.AddWriteOffset(BYTES_TO_BITS(sizeof(i)));
+	bitStream.AddWriteOffset(knet::BytesToBits(sizeof(i)));
 
 	bitStream.Write(std::string("testString"));
 
@@ -65,11 +65,49 @@ TEST(BitStreamTest, ReadOffset)
 
 	bitStream.Write(i, std::string("testString"));
 
-	bitStream.SetReadOffset(BYTES_TO_BITS(sizeof(i)));
+	bitStream.SetReadOffset(knet::BytesToBits(sizeof(i)));
 
 	i = 0;
 
 	bitStream.Read(readStr);
 
+	bitStream.SetReadOffset(0);
+
+	bitStream.Read(i);
+
 	EXPECT_EQ("testString", readStr);
+	EXPECT_EQ(10000, i);
+}
+
+TEST(BitStreamTest, StreamOperators)
+{
+	std::string testStr = "This is a test string";
+
+	knet::BitStream bitStream;
+
+	bitStream << testStr;
+	bitStream >> testStr;
+
+	EXPECT_EQ("This is a test string", testStr);
+}
+
+TEST(BitStreamTest, AlignToByteBoundary)
+{
+	std::string testStr = "This is a test string";
+
+	knet::BitStream bitStream;
+
+
+	bitStream.Write0();
+	bitStream.AlignWriteToByteBoundary();
+	bitStream.Write1();
+	bitStream.AlignWriteToByteBoundary();
+
+
+	EXPECT_EQ(false, bitStream.ReadBit());
+	bitStream.AlignReadToByteBoundary();
+	
+	EXPECT_EQ(8, bitStream.ReadOffset());
+
+	EXPECT_EQ(true, bitStream.ReadBit());
 }

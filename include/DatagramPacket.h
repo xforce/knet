@@ -33,7 +33,7 @@ namespace knet
 
 		void Deserialze(BitStream & bitStream)
 		{
-			auto bsSize = BYTES_TO_BITS(bitStream.Size());
+			auto bsSize = BytesToBits(bitStream.Size());
 
 			header.Deserialize(bitStream);
 
