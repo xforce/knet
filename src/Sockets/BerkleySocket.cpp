@@ -34,6 +34,8 @@
 
 #ifndef WIN32
 #include <fcntl.h>
+#else
+#include <ws2tcpip.h>
 #endif
 
 namespace knet
@@ -71,7 +73,7 @@ namespace knet
 
 				LPSTR errString = NULL;
 
-				int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
+				FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
 				DEBUG_LOG("\nError code %d:  %s\n\n", errCode, errString);
 
@@ -136,7 +138,7 @@ namespace knet
 
 			LPSTR errString = NULL;
 
-			int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
+			FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR)&errString, 0, 0);
 
 			DEBUG_LOG("Error code %d:  %s in [%s]\n\n", errCode, errString, __FUNCSIG__);
 
@@ -224,7 +226,7 @@ namespace knet
 
 					LPSTR errString = NULL;
 
-					int size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR) &errString, 0, 0);
+					FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPSTR) &errString, 0, 0);
 
 					DEBUG_LOG("Error code %d:  %s in [%s]\n\n", errCode, errString, __FUNCSIG__);
 

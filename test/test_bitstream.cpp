@@ -37,7 +37,7 @@ TEST(BitStreamTest, WriteOffset)
 
 	knet::BitStream bitStream;
 
-	knet::uint16 i = 10000;
+	uint16_t i = 10000;
 
 	bitStream.AddWriteOffset(knet::BytesToBits(sizeof(i)));
 
@@ -61,7 +61,7 @@ TEST(BitStreamTest, ReadOffset)
 
 	knet::BitStream bitStream;
 
-	knet::uint16 i = 10000;
+	uint16_t i = 10000;
 
 	bitStream.Write(i, std::string("testString"));
 
@@ -110,4 +110,17 @@ TEST(BitStreamTest, AlignToByteBoundary)
 	EXPECT_EQ(8, bitStream.ReadOffset());
 
 	EXPECT_EQ(true, bitStream.ReadBit());
+}
+
+TEST(BitStreamTest, BigDataReadWrite)
+{
+	char bigDataWrite[1024 * 100] = { 1 };
+	knet::BitStream bitStream;
+
+	bitStream.Write(bigDataWrite);
+
+	char bigDataRead[1024 * 100] = { 0 };
+	bitStream.Read(bigDataRead);
+
+	EXPECT_EQ(bigDataWrite[0], bigDataRead[0]);
 }

@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Crix-Dev
+* Copyright (C) 2014-2015 Crix-Dev
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -59,11 +59,11 @@ namespace knet
 		std::mutex bufferMutex;
 		std::queue<knet::InternalRecvPacket*> bufferedPacketQueue;
 
-		uint32 maxConnections = 5;
+		uint32_t maxConnections = 5;
 
 		bool isConnected = false;
 		bool reorderRemoteSystems = true;
-		uint32 activeSystems = 0;
+		uint32_t activeSystems = 0;
 
 	public:
 		Peer() noexcept;
@@ -71,11 +71,11 @@ namespace knet
 
 		std::shared_ptr<knet::ISocket> GetSocket() noexcept;
 
-		void Start(const std::string &strAddress, uint16 usPort) noexcept;
+		void Start(const std::string &strAddress, uint16_t usPort) noexcept;
 
 		void Send(System &peer, const char * data, size_t len, bool im = false) noexcept;
 
-		void Connect(const std::string &strRemoteAddress, uint16 usPort) noexcept;
+		void Connect(const std::string &strRemoteAddress, uint16_t usPort) noexcept;
 
 		void Process() noexcept;
 

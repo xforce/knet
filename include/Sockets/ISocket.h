@@ -36,6 +36,11 @@
 
 #include "../EventHandler.h"
 
+#ifdef WIN32
+#include <WinSock2.h>
+#include <Ws2def.h>
+#endif
+
 /*
 	TODO: clean this file up
 */
@@ -53,12 +58,12 @@ namespace knet
 		int socketProtocol = 0;
 	};
 
-	enum class SocketType : uint8
+	enum class SocketType : uint8_t
 	{
 		Berkley,
 	};
 
-	enum class SocketEvents : uint8
+	enum class SocketEvents : uint8_t
 	{
 		RECEIVE,
 		MAX_EVENTS,
@@ -66,7 +71,7 @@ namespace knet
 
 #define MAX_MTU_SIZE 1492
 #ifdef WIN32
-	using socketlen_t = int32;
+	using socketlen_t = int32_t;
 #else
 	typedef unsigned int socklen_t;
 #endif
@@ -96,7 +101,7 @@ namespace knet
 	{
 	public:
 		char data[MAX_MTU_SIZE];
-		int bytesRead;
+		size_t bytesRead;
 		SocketAddress remoteAddress;
 		std::chrono::steady_clock::time_point timeStamp;
 		std::shared_ptr<ISocket> _socket = nullptr;

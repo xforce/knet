@@ -34,6 +34,11 @@
 
 #include "ISocket.h"
 
+#ifdef WIN32
+#include <WinSock2.h>
+#include <Windows.h>
+#endif
+
 namespace knet
 {
 

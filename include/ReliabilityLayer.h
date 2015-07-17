@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Crix-Dev
+* Copyright (C) 2014-2015 Crix-Dev
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -43,10 +43,11 @@
 #include <queue>
 #include <bitset>
 #include <unordered_map>
+#include <array>
 
 namespace knet
 {
-	enum class ReliabilityEvents : uint8
+	enum class ReliabilityEvents : uint8_t
 	{
 		RECEIVE = 0,
 		CONNECTION_LOST_TIMEOUT,
@@ -55,12 +56,12 @@ namespace knet
 		MAX_EVENTS,
 	};
 
-	enum class DisconnectReason : uint8
+	enum class DisconnectReason : uint8_t
 	{
 		TIMEOUT = 0,
 	};
 
-	enum class MessageID : uint8
+	enum class MessageID : uint8_t
 	{
 		CONNECTION_REQUEST,
 		CONNECTION_ACCEPTED,
@@ -73,8 +74,8 @@ namespace knet
 	class FlowControlHelper
 	{
 	private:
-		int32 sequenceNumber = 0;
-		uint16 splitNumber = 0;
+		int32_t sequenceNumber = 0;
+		uint16_t splitNumber = 0;
 
 	public:
 
@@ -127,7 +128,7 @@ namespace knet
 		std::shared_ptr<ISocket> m_pSocket = nullptr;
 		SocketAddress m_RemoteSocketAddress;
 
-		uint8 orderingChannel = 0;
+		uint8_t orderingChannel = 0;
 
 		FlowControlHelper flowControlHelper;
 
@@ -152,11 +153,11 @@ namespace knet
 		std::array<std::vector<ReliablePacket>, static_cast<std::size_t>(PacketPriority::IMMEDIATE)> sendBuffer;
 		std::array<std::vector<ReliablePacket>, 255> orderedPacketBuffer;
 		
-		std::array<uint16, 255> lastOrderedIndex;
-		std::array<uint16, 255> highestSequencedReadIndex;
+		std::array<uint16_t, 255> lastOrderedIndex;
+		std::array<uint16_t, 255> highestSequencedReadIndex;
 
 
-		std::unordered_map<uint16, std::vector<ReliablePacket>> splitPacketBuffer;
+		std::unordered_map<uint16_t, std::vector<ReliablePacket>> splitPacketBuffer;
 	private:
 		/* Methods */
 		void SendACKs();
@@ -198,13 +199,13 @@ namespace knet
 		\return The current channel on which the remote reliability layer will order incoming ordered packets
 		Packets sent before may used a different channel
 		*/
-		uint8 GetOrderingChannel() const;
+		uint8_t GetOrderingChannel() const;
 
 		//! Sets the channel used to order sent packets
 		/*!
 		\param[in] ucChannel The channel on which the next ordered packets will be ordered on the remote reliability layer.
 		*/
-		void SetOrderingChannel(uint8 ucChannel);
+		void SetOrderingChannel(uint8_t ucChannel);
 
 
 		//! Gets the socket used to send packets

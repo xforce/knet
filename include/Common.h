@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Crix-Dev
+* Copyright (C) 2014-2015 Crix-Dev
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,7 +28,6 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// TODO: change include guard to say its logger to prevent guard mess
 #ifndef kNet_Common_h
 #define kNet_Common_h
 
@@ -131,63 +130,6 @@ if !defined(__GXX_EXPERIMENTAL_CXX0X__) || __GXX_EXPERIMENTAL_CXX0X__ != 1
 #define NOEXCEPT _NOEXCEPT
 #endif
 #endif
-
-// at this point we can use C++11
-
-#ifdef WIN32
-#include <WinSock2.h> // Just to be sure that there will never be a fucking include guard error
-#include <Windows.h>
-#include <WS2tcpip.h>
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-typedef int SOCKET;
-
-#define sprintf_s(a, b, c) snprintf(a, sizeof(a), b, c)
-#endif
-
-// These are C++ standard includes so not platform specific
-
-#pragma region STD
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <random>
-#include <chrono>
-#include <thread>
-#include <functional>
-#include <tuple>
-#include <algorithm>
-#include <array>
-#include <memory>
-#pragma endregion
-
-#include <cassert>
-#include <cstdint>
-#include <cstring>
-#include <cstdio>
-
-#define NAMESPACE_KNET_BEGIN namespace knet {
-#define NAMESPACE_KNET_END }
-
-NAMESPACE_KNET_BEGIN
-
-// Define the standard types to shorter names
-using int8 = ::std::int8_t;
-using uint8 = ::std::uint8_t;
-
-using int16 = ::std::int16_t;
-using uint16 = ::std::uint16_t;
-
-using int32 = ::std::int32_t;	
-using uint32 = ::std::uint32_t;
-
-using int64 = ::std::int64_t;
-using uint64 = ::std::uint64_t;
-
-NAMESPACE_KNET_END
 
 #if defined(_MSC_VER)
 //  Microsoft

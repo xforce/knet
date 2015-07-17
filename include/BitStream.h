@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Crix-Dev
+* Copyright (C) 2014-2015 Crix-Dev
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -30,7 +30,11 @@
 
 #pragma once
 
-#include "Common.h"
+#include <cstdint>
+#include <type_traits>
+#include <string>
+
+#include <cassert>
 
 namespace knet
 {
@@ -51,60 +55,58 @@ namespace knet
 	class BitStream
 	{
 	public:
-		using baseType = unsigned char;
+		using baseType = uint8_t;
 
 
 	private:
-		baseType* pData = nullptr;
-		size_t readOffset = 0;
-		size_t bitsAllocated = 0;
-		size_t bitsUsed = 0;
+		baseType* _data = nullptr;
+		size_t _readOffset = 0;
+		size_t _bitsAllocated = 0;
+		size_t _bitsUsed = 0;
 
 		baseType stackData[BITSTREAM_STACK_SIZE];
-
-
 	public:
 		BitStream() noexcept;
 
-		BitStream(size_t initialBytes) noexcept;
+		BitStream(size_t) noexcept;
 
-		BitStream(BitStream &&other) noexcept;
-		BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData) noexcept;
+		BitStream(BitStream &&) noexcept;
+		BitStream(unsigned char*,const size_t, bool) noexcept;
 		virtual ~BitStream() noexcept;
 
 		void Reset() noexcept
 		{
-			readOffset = 0;
-			bitsUsed = 0;
+			_readOffset = 0;
+			_bitsUsed = 0;
 		}
 
 		size_t ReadOffset() noexcept
 		{
-			return readOffset;
+			return _readOffset;
 		}
 
-		inline void AlignWriteToByteBoundary() noexcept { bitsUsed += 8 - (((bitsUsed - 1) & 7) + 1); }
+		inline void AlignWriteToByteBoundary() noexcept { _bitsUsed += 8 - (((_bitsUsed - 1) & 7) + 1); }
 
-		inline void AlignReadToByteBoundary() noexcept { readOffset += 8 - (((readOffset - 1) & 7) + 1); }
+		inline void AlignReadToByteBoundary() noexcept { _readOffset += 8 - (((_readOffset - 1) & 7) + 1); }
 
 
 		/*
 		* Checks for free bits and allocates the needed number of bytes to fit the data
 		*/
-		bool AllocateBits(size_t numberOfBits) noexcept;
+		bool AllocateBits(size_t) noexcept;
 
 
-		void SetReadOffset(size_t readOffset) noexcept;
+		void SetReadOffset(size_t) noexcept;
 
 		/*
 		* This functions checks for available bits and add bit if needed
 		*/
-		bool PrepareWrite(size_t bitsToWrite) noexcept;
+		bool PrepareWrite(size_t) noexcept;
 
 
-		void SetWriteOffset(size_t writeOffset) noexcept;
+		void SetWriteOffset(size_t) noexcept;
 
-		void AddWriteOffset(size_t writeOffset) noexcept;
+		void AddWriteOffset(size_t) noexcept;
 		/*
 		*
 		*/
@@ -113,23 +115,23 @@ namespace knet
 
 		inline bool ReadBit() noexcept
 		{
-			bool result = (pData[readOffset >> 3] & (0x80 >> (readOffset & 7))) != 0;
-			readOffset++;
+			bool result = (_data[_readOffset >> 3] & (0x80 >> (_readOffset & 7))) != 0;
+			_readOffset++;
 			return result;
 		}
 
-		bool WriteBits(const unsigned char *data, size_t numberOfBits) noexcept;
-		bool Write(const unsigned char *data, size_t size) noexcept;
-		bool Write(const char* data, size_t size) noexcept;
+		bool WriteBits(const unsigned char *, size_t) noexcept;
+		bool Write(const unsigned char *, size_t) noexcept;
+		bool Write(const char*, size_t) noexcept;
 
 		char * Data() noexcept
 		{
-			return (char*)pData;
+			return (char*)_data;
 		}
 
 		size_t Size() noexcept
 		{
-			return BitsToBytes(bitsUsed);
+			return BitsToBytes(_bitsUsed);
 		}
 
 		// At least 2 parameters
@@ -137,8 +139,7 @@ namespace knet
 		typename std::enable_if<std::is_pointer<T>::value == false, bool>::type
 			Write(const T& value, const T2 &value2, const Ts&... values) noexcept
 		{
-			using ltype_const = typename std::remove_reference<T>::type;
-			using ltype = typename std::remove_const<ltype_const>::type;
+			using ltype = std::decay_t<T>;
 
 			if (!Write<ltype>(value))
 				return false;
@@ -146,22 +147,14 @@ namespace knet
 			return Write<T2, Ts...>(value2, values...);
 		}
 
-		/*template<typename T>
-		typename std::enable_if<std::is_same<T, std::string>::value, bool>::type
-		Write(const T& str) noexcept
-		{
-		return (Write(str.size())
-		&& Write((unsigned char*)str.c_str(), str.size()));
-		}*/
-
 		template<typename T>
 		bool Write(const T& value) noexcept
 		{
 			return Write(reinterpret_cast<const unsigned char*>(&value), sizeof(T));
 		}
 
-		bool ReadBits(char *pData, size_t  numberOfBits) noexcept;
-		bool Read(char *pData, size_t size) noexcept;
+		bool ReadBits(char *, size_t) noexcept;
+		bool Read(char *, size_t) noexcept;
 
 		// At least 2 parameters
 		template<typename T, typename T2, typename ...Ts>
@@ -169,7 +162,7 @@ namespace knet
 			typename std::enable_if<std::is_pointer<T>::value == false, bool>::type // This makes 'bool Read(char *pData, size_t size) noexcept;' working
 			Read(T&& value, T2&& value2, Ts&&... values) noexcept
 		{
-			using ltype = typename std::remove_reference<T>::type;
+			using ltype = std::decay_t<T>;
 
 			if (!Read<ltype>(::std::forward<T>(value)))
 				return false;
@@ -183,8 +176,8 @@ namespace knet
 			return Read((char*)&value, sizeof(T));
 		}
 
-		bool operator=(const BitStream &right) noexcept;
-		bool operator=(BitStream &&right) noexcept;
+		bool operator=(const BitStream &) noexcept;
+		bool operator=(BitStream &&) noexcept;
 
 	public: /* Stream operators */
 
@@ -209,7 +202,7 @@ namespace knet
 	inline bool BitStream::Write(const std::string & str) noexcept
 	{
 		return (Write(str.size())
-				&& Write((unsigned char*)str.c_str(), str.size()));
+			&& Write((unsigned char*)str.c_str(), str.size()));
 	}
 
 	template<>
@@ -247,109 +240,117 @@ namespace knet
 	{
 		if (initialBytes < BITSTREAM_STACK_SIZE)
 		{
-			pData = stackData;
-			bitsAllocated = BytesToBits(BITSTREAM_STACK_SIZE);
+			_data = stackData;
+			_bitsAllocated = BytesToBits(BITSTREAM_STACK_SIZE);
 		}
 		else
 		{
-			pData = new unsigned char[initialBytes];
-			bitsAllocated = BytesToBits(initialBytes);
+			_data = new unsigned char[initialBytes];
+			_bitsAllocated = BytesToBits(initialBytes);
 		}
 	}
 
 	inline BitStream::BitStream(BitStream &&other) noexcept
 	{
-		if (pData != stackData)
-			if (pData)
-				free(pData);
+		if (_data != stackData)
+			if (_data)
+			free(_data);
 
-		if (other.pData == other.stackData)
+		if (other._data == other.stackData)
 			memcpy(this->stackData, other.stackData, BITSTREAM_STACK_SIZE);
 		else
-			pData = other.pData;
+			_data = other._data;
 
-		bitsAllocated = other.bitsAllocated;
-		bitsUsed = other.bitsUsed;
-		readOffset = other.readOffset;
+		_bitsAllocated = other._bitsAllocated;
+		_bitsUsed = other._bitsUsed;
+		_readOffset = other._readOffset;
 
-		other.bitsUsed = 0;
-		other.bitsAllocated = 0;
-		other.pData = nullptr;
-		other.readOffset = 0;
+		other._bitsUsed = 0;
+		other._bitsAllocated = 0;
+		other._data = nullptr;
+		other._readOffset = 0;
 	}
 
-	inline BitStream::BitStream(unsigned char* _data, const int lengthInBytes, bool _copyData) noexcept
+	inline BitStream::BitStream(unsigned char* _data, const size_t lengthInBytes, bool _copyData) noexcept
 	{
-		bitsUsed = BytesToBits(lengthInBytes);
-		readOffset = 0;
+		_bitsUsed = BytesToBits(lengthInBytes);
+		_readOffset = 0;
 		//copyData = _copyData;
-		bitsAllocated = BytesToBits(lengthInBytes);
+		_bitsAllocated = BytesToBits(lengthInBytes);
 
 		if (_copyData || 1 == 1)
 		{
 			if (lengthInBytes < BITSTREAM_STACK_SIZE)
 			{
-				pData = stackData;
-				bitsAllocated = BytesToBits(BITSTREAM_STACK_SIZE);
+				_data = stackData;
+				_bitsAllocated = BytesToBits(BITSTREAM_STACK_SIZE);
 			}
 			else
 				//if (lengthInBytes > 0)
 			{
-				pData = (unsigned char*)malloc((size_t)lengthInBytes);
+				_data = (unsigned char*)malloc((size_t)lengthInBytes);
 
-				assert(pData);
+				assert(_data);
 
 
 			}
 			/*else
 			pData = 0;*/
 
-			memcpy(pData, _data, (size_t)lengthInBytes);
+			memcpy(_data, _data, (size_t)lengthInBytes);
 		}
 		else
-			pData = (unsigned char*)_data;
+			_data = (unsigned char*)_data;
 	}
 
 	inline BitStream::~BitStream() noexcept
 	{
-		if (pData != stackData)
-			if (pData)
-				free(pData);
+		if (_data != stackData)
+			if (_data)
+			free(_data);
 
-		bitsAllocated = 0;
-		bitsUsed = 0;
-		readOffset = 0;
+		_bitsAllocated = 0;
+		_bitsUsed = 0;
+		_readOffset = 0;
 	}
 
 	inline bool BitStream::AllocateBits(size_t numberOfBits) noexcept
 	{
-		size_t newBitsAllocated = bitsAllocated + numberOfBits;
+		size_t newBitsAllocated = _bitsAllocated + numberOfBits;
 
 		if (BitsToBytes(newBitsAllocated) < BITSTREAM_STACK_SIZE)
 		{
 			return true;
 		}
+		decltype(_data) data = _data;
 
-		auto data = (decltype(pData))realloc(pData, BitsToBytes(newBitsAllocated));
+		if (data == stackData)
+		{
+			// As stackData is a static array, 
+			// we have to use nullptr so realloc acts like malloc
+			data = nullptr;
+		}
+
+		data = (decltype(_data))realloc(data, BitsToBytes(newBitsAllocated));
 
 		if (!data)
 			return false;
 
-		if (pData == stackData)
-			memcpy(data, stackData, BitsToBytes(bitsAllocated));
+		if (_data == stackData)
+			memcpy(data, stackData, BitsToBytes(_bitsAllocated));
 
-		pData = data;
+		_data = data;
 
-		assert(pData);
+		assert(_data);
 
-		bitsAllocated = newBitsAllocated;
+		_bitsAllocated = newBitsAllocated;
 
 		return true;
 	}
 
 	inline bool BitStream::PrepareWrite(size_t bitsToWrite) noexcept
 	{
-		if ((bitsAllocated - bitsUsed) >= bitsToWrite)
+		if ((_bitsAllocated - _bitsUsed) >= bitsToWrite)
 			return true;
 		else
 		{
@@ -362,24 +363,24 @@ namespace knet
 		PrepareWrite(1);
 
 		// New bytes need to be zeroed
-		if ((bitsUsed & 7) == 0)
-			pData[bitsUsed >> 3] = 0;
+		if ((_bitsUsed & 7) == 0)
+			_data[_bitsUsed >> 3] = 0;
 
-		++bitsUsed;
+		++_bitsUsed;
 	}
 
 	inline void BitStream::Write1() noexcept
 	{
 		PrepareWrite(1);
 
-		size_t numberOfBitsMod8 = bitsUsed & 7;
+		size_t numberOfBitsMod8 = _bitsUsed & 7;
 
 		if (numberOfBitsMod8 == 0)
-			pData[bitsUsed >> 3] = 0x80;
+			_data[_bitsUsed >> 3] = 0x80;
 		else
-			pData[bitsUsed >> 3] |= 0x80 >> (numberOfBitsMod8); // Set the bit to 1
+			_data[_bitsUsed >> 3] |= 0x80 >> (numberOfBitsMod8); // Set the bit to 1
 
-		++bitsUsed;
+		++_bitsUsed;
 	}
 
 	inline bool BitStream::Write(const unsigned char *data, size_t size) noexcept
@@ -388,10 +389,10 @@ namespace knet
 
 		const size_t bitsToWrite = BytesToBits(size);
 
-		if ((bitsUsed & 7) == 0)
+		if ((_bitsUsed & 7) == 0)
 		{
-			memcpy(this->pData + BitsToBytes(bitsUsed), data, size);
-			bitsUsed += bitsToWrite;
+			memcpy(this->_data + BitsToBytes(_bitsUsed), data, size);
+			_bitsUsed += bitsToWrite;
 			return true;
 		}
 		else
@@ -404,14 +405,12 @@ namespace knet
 	{
 		PrepareWrite(BytesToBits(size));
 
-		// This might cause bad performance because we have todo the same in writebits. Question How can we optimize that?
-		// Check if we can just use memcpy :)
 		const size_t bitsToWrite = BytesToBits(size);
 
-		if ((bitsUsed & 7) == 0)
+		if ((_bitsUsed & 7) == 0)
 		{
-			memcpy(this->pData + BitsToBytes(bitsUsed), pData, size);
-			bitsUsed += bitsToWrite;
+			memcpy(this->_data + BitsToBytes(_bitsUsed), pData, size);
+			_bitsUsed += bitsToWrite;
 			return true;
 		}
 		else
@@ -420,16 +419,15 @@ namespace knet
 		}
 	}
 
-
 	inline bool BitStream::WriteBits(const unsigned char *pData, size_t  numberOfBits) noexcept
 	{
-		const size_t numberOfBitsUsedMod8 = bitsUsed & 7;
+		const size_t numberOfBitsUsedMod8 = _bitsUsed & 7;
 
 		if (numberOfBitsUsedMod8 == 0)
 		{
 			// Just do a memcpy instead of do this in the loop below
-			memcpy(this->pData + BitsToBytes(bitsUsed), pData, BitsToBytes(numberOfBits));
-			bitsUsed += numberOfBits;
+			memcpy(this->_data + BitsToBytes(_bitsUsed), pData, BitsToBytes(numberOfBits));
+			_bitsUsed += numberOfBits;
 
 			return true;
 		}
@@ -442,21 +440,21 @@ namespace knet
 			dataByte = *(inputPtr++);
 
 			// Copy over the new data.
-			*(this->pData + (numberOfBits >> 3)) |= dataByte >> (numberOfBitsUsedMod8);
+			*(this->_data + (numberOfBits >> 3)) |= dataByte >> (numberOfBitsUsedMod8);
 
 			if (8 - (numberOfBitsUsedMod8) < 8 && 8 - (numberOfBitsUsedMod8) < numberOfBits)
 			{
-				*(this->pData + (bitsUsed >> 3) + 1) = (unsigned char)(dataByte << (8 - (numberOfBitsUsedMod8)));
+				*(this->_data + (_bitsUsed >> 3) + 1) = (unsigned char)(dataByte << (8 - (numberOfBitsUsedMod8)));
 			}
 
 			if (numberOfBits >= 8)
 			{
-				bitsUsed += 8;
+				_bitsUsed += 8;
 				numberOfBits -= 8;
 			}
 			else
 			{
-				bitsUsed += numberOfBits;
+				_bitsUsed += numberOfBits;
 				return true;
 			}
 		}
@@ -467,11 +465,11 @@ namespace knet
 
 	inline bool BitStream::Read(char *pData, size_t size) noexcept
 	{
-		if ((readOffset & 7) == 0)
+		if ((_readOffset & 7) == 0)
 		{
-			memcpy(pData, this->pData + (readOffset >> 3), (size_t)size);
+			memcpy(pData, this->_data + (_readOffset >> 3), (size_t)size);
 
-			readOffset += size << 3;
+			_readOffset += size << 3;
 		}
 		else
 		{
@@ -487,17 +485,17 @@ namespace knet
 		if (numberOfBits <= 0)
 			return false;
 
-		if (readOffset + numberOfBits > bitsUsed)
+		if (_readOffset + numberOfBits > _bitsUsed)
 			return false;
 
 
-		const size_t readOffsetMod8 = readOffset & 7;
+		const size_t readOffsetMod8 = _readOffset & 7;
 
 
 		if (readOffsetMod8 == 0 && (numberOfBits & 7) == 0)
 		{
-			memcpy(pData, this->pData + (readOffset >> 3), numberOfBits >> 3);
-			readOffset += numberOfBits;
+			memcpy(pData, this->_data + (_readOffset >> 3), numberOfBits >> 3);
+			_readOffset += numberOfBits;
 			return true;
 		}
 		else
@@ -508,20 +506,20 @@ namespace knet
 
 			while (numberOfBits > 0)
 			{
-				*(pData + offset) |= *(this->pData + (readOffset >> 3)) << (readOffsetMod8);
+				*(pData + offset) |= *(this->_data + (_readOffset >> 3)) << (readOffsetMod8);
 
 				if (readOffsetMod8 > 0 && numberOfBits > 8 - (readOffsetMod8))
-					*(pData + offset) |= *(this->pData + (readOffset >> 3) + 1) >> (8 - (readOffsetMod8));
+					*(pData + offset) |= *(this->_data + (_readOffset >> 3) + 1) >> (8 - (readOffsetMod8));
 
 				if (numberOfBits >= 8)
 				{
 					numberOfBits -= 8;
-					readOffset += 8;
+					_readOffset += 8;
 					offset++;
 				}
 				else
 				{
-					readOffset += numberOfBits;
+					_readOffset += numberOfBits;
 					return true;
 				}
 			}
@@ -530,65 +528,58 @@ namespace knet
 		}
 	}
 
-	/*inline bool BitStream::Write(const std::string & str) noexcept
-	{
-	return (Write(str.size())
-	&& Write((unsigned char*)str.c_str(), str.size()));
-	}*/
-
-
 	inline void BitStream::SetReadOffset(size_t readOffset) noexcept
 	{
-		this->readOffset = readOffset;
+		this->_readOffset = readOffset;
 	}
 
 	inline void BitStream::SetWriteOffset(size_t writeOffset) noexcept
 	{
-		PrepareWrite(writeOffset - this->bitsUsed);
+		PrepareWrite(writeOffset - this->_bitsUsed);
 
-		bitsUsed = writeOffset;
+		_bitsUsed = writeOffset;
 	}
 
 	// Add write offset in bits
 	inline void BitStream::AddWriteOffset(size_t writeOffset) noexcept
 	{
-		PrepareWrite(this->bitsUsed + writeOffset);
+		PrepareWrite(this->_bitsUsed + writeOffset);
 
-		bitsUsed += writeOffset;
+		_bitsUsed += writeOffset;
 	}
 
 #pragma region operators
 
 	inline bool BitStream::operator=(const BitStream &right) noexcept
 	{
-		PrepareWrite(right.bitsUsed);
+		PrepareWrite(right._bitsUsed);
 
-		memcpy(this->pData, right.pData, BitsToBytes(right.bitsUsed));
-		this->bitsUsed = right.bitsUsed;
-		this->readOffset = right.readOffset;
+		memcpy(this->_data, right._data, BitsToBytes(right._bitsUsed));
+		this->_bitsUsed = right._bitsUsed;
+		this->_readOffset = right._readOffset;
 
 		return true;
 	}
 
 	inline bool BitStream::operator=(BitStream &&right) noexcept
 	{
-		if (pData != stackData)
-			if (pData)
-				free(pData);
+		if (_data != stackData)
+			if (_data)
+			free(_data);
 
-		if (right.pData == right.stackData)
+		if (right._data == right.stackData)
 			memcpy(this->stackData, right.stackData, BITSTREAM_STACK_SIZE);
 		else
-			pData = right.pData;
+			_data = right._data;
 
-		bitsAllocated = right.bitsAllocated;
-		bitsUsed = right.bitsUsed;
-		readOffset = right.readOffset;
+		_bitsAllocated = right._bitsAllocated;
+		_bitsUsed = right._bitsUsed;
+		_readOffset = right._readOffset;
 
-		right.bitsUsed = 0;
-		right.bitsAllocated = 0;
-		right.pData = nullptr;
-		right.readOffset = 0;
+		right._bitsUsed = 0;
+		right._bitsAllocated = 0;
+		right._data = nullptr;
+		right._readOffset = 0;
 
 		return true;
 	}

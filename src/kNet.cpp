@@ -315,7 +315,7 @@ int main(int argc, char** argv)
 		{
 
 			char title[MAX_PATH] = {0};
-			sprintf(title, "Packets per Second sent by Socket: %d", countPerSec);
+			sprintf_s(title, "Packets per Second sent by Socket: %d", countPerSec);
 			countPerSec = 0;
 			SetConsoleTitleA(title);
 			lastTitle = GetTickCount();

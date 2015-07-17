@@ -40,14 +40,14 @@ namespace knet
 		_socket = std::make_shared<BerkleySocket>();
 
 		// Now connect our peer with the socket
-		_socket->GetEventHandler().AddEvent(SocketEvents::RECEIVE, mkEventN(&Peer::OnReceive, this), this);
+		_socket->GetEventHandler().AddEvent(SocketEvents::RECEIVE, this, &Peer::OnReceive, this);
 
 		// Now we want to handle the received packets in our reliabilityLayer
-		reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET,
-													mkEventN(&Peer::HandlePacket, this), this);
+		reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET, this, 
+													&Peer::HandlePacket, this);
 
-		reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::NEW_CONNECTION,
-															mkEventN(&Peer::HandleNewConnection, this), this);
+		reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::NEW_CONNECTION, this, 
+															&Peer::HandleNewConnection, this);
 
 		DEBUG_LOG("Local ReliabilityLayer {%p}", &reliabilityLayer);
 	}
@@ -68,7 +68,7 @@ namespace knet
 		return _socket;
 	}
 
-	void Peer::Start(const std::string & strAddress, uint16 usPort) noexcept
+	void Peer::Start(const std::string & strAddress, uint16_t usPort) noexcept
 	{
 		knet::SocketBindArguments bi;
 
@@ -80,7 +80,7 @@ namespace knet
 	}
 
 
-	void Peer::Connect(const std::string &strRemoteAddress, uint16 usPort) noexcept
+	void Peer::Connect(const std::string &strRemoteAddress, uint16_t usPort) noexcept
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -93,7 +93,7 @@ namespace knet
 		dh.Serialize(bitStream);
 
 		bitStream.Write(PacketReliability::UNRELIABLE);
-		bitStream.Write<uint16>(sizeof(MessageID::CONNECTION_REQUEST));
+		bitStream.Write<uint16_t>(sizeof(MessageID::CONNECTION_REQUEST));
 		bitStream.Write(MessageID::CONNECTION_REQUEST);
 
 		SocketAddress remoteAdd = { 0 };
@@ -296,11 +296,11 @@ namespace knet
 		system->reliabilityLayer.SetSocket(this->_socket);
 
 		// we want all handle events in our peer
-		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET,
-															mkEventN(&Peer::HandlePacket, this), this);
+		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET, this,
+															&Peer::HandlePacket, this);
 
-		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::CONNECTION_LOST_TIMEOUT,
-													mkEventN(&Peer::HandleDisconnect, this), this);
+		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::CONNECTION_LOST_TIMEOUT, this,
+													&Peer::HandleDisconnect, this);
 		remoteSystems.push_back(system);
 
 		++activeSystems;

@@ -4,6 +4,8 @@
 #include "DatagramHeader.h"
 #include "ReliablePacket.h"
 
+#include <vector>
+
 namespace knet
 {
 	struct DatagramPacket

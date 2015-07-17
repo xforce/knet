@@ -249,8 +249,8 @@ namespace knet
 		UNREFERENCED_PARAMETER(curTime);
 
 		int i = 0;
-		uint16 lastIndex = 0;
-		uint8 channel = 0;
+		uint16_t lastIndex = 0;
+		uint8_t channel = 0;
 
 		for (auto & orderedPackets : orderedPacketBuffer)
 		{
@@ -364,7 +364,7 @@ namespace knet
 			DatagramPacket * pCurrentPacket = pReliableDatagramPacket;
 
 			int mediumsSent = 0;
-			int lowSent = 0;
+			//int lowSent = 0;
 			int highSent = 0;
 
 
@@ -392,7 +392,7 @@ namespace knet
 			};
 
 
-			uint32 bufIndex[PacketPriority::IMMEDIATE] = {0};
+			uint32_t bufIndex[PacketPriority::IMMEDIATE] = {0};
 
 			for (int i = 0; i < 100; ++i)
 			{
@@ -588,7 +588,7 @@ namespace knet
 		{
 			if (remoteSystem.address == pPacket->remoteAddress)
 			{
-				BitStream bitStream{(unsigned char*)pPacket->data, pPacket->bytesRead, true};
+				BitStream bitStream{(unsigned char*)pPacket->data, static_cast<size_t>(pPacket->bytesRead), true};
 
 				//DEBUG_LOG("Process %d bytes", pPacket->bytesRead);
 
@@ -601,15 +601,15 @@ namespace knet
 				if (dPacket.header.isACK)
 				{
 					// Handle ACK Packet
-					uint32 count = 0;
+					uint32_t count = 0;
 					bitStream.Read(count);
 
-					std::vector<std::pair<int32, int32>> ranges(count);
+					std::vector<std::pair<int32_t, int32_t>> ranges(count);
 
-					int32 max;
-					int32 min;
+					int32_t max;
+					int32_t min;
 
-					for (uint32 i = 0; i < count; ++i)
+					for (uint32_t i = 0; i < count; ++i)
 					{
 						bitStream.Read(min);
 						bitStream.Read(max);
@@ -632,7 +632,7 @@ namespace knet
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
 						
 						// Checks if the given sequence number is in range of the given acks
-						auto isInAckRange = [](decltype(ranges)& vecRange, int32 sequenceNumber) {
+						auto isInAckRange = [](decltype(ranges)& vecRange, int32_t sequenceNumber) {
 							return std::any_of(std::begin(vecRange), std::end(vecRange), [sequenceNumber](const auto &k) {
 								return (sequenceNumber >= k.first && sequenceNumber <= k.second);
 							});
@@ -650,15 +650,15 @@ namespace knet
 				else if (dPacket.header.isNACK)
 				{
 					// Handle NACK Packet
-					uint32 count = 0;
+					uint32_t count = 0;
 					bitStream.Read(count);
 
-					std::vector<std::pair<int32, int32>> ranges(count);
+					std::vector<std::pair<int32_t, int32_t>> ranges(count);
 
-					int32 max;
-					int32 min;
+					int32_t max;
+					int32_t min;
 
-					for (uint32 i = 0; i < count; ++i)
+					for (uint32_t i = 0; i < count; ++i)
 					{
 						bitStream.Read(min);
 						bitStream.Read(max);
@@ -678,7 +678,7 @@ namespace knet
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
 						
 						// Checks if the given sequence number is in range of the given acks
-						auto isInAckRange = [](decltype(ranges)& vecRange, int32 sequenceNumber) {
+						auto isInAckRange = [](decltype(ranges)& vecRange, int32_t sequenceNumber) {
 							return std::any_of(std::begin(vecRange), std::end(vecRange), [sequenceNumber](const auto &k) {
 								return (sequenceNumber >= k.first && sequenceNumber <= k.second);
 							});
@@ -753,7 +753,7 @@ namespace knet
 						if (packet.splitInfo.isEnd)
 						{
 							//
-							BitStream bitStream{MAX_MTU_SIZE};
+							BitStream bitStream2{MAX_MTU_SIZE};
 
 							std::sort(splitPacketBuffer.at(packet.splitInfo.packetIndex).begin(), splitPacketBuffer.at(packet.splitInfo.packetIndex).end(), [](const ReliablePacket &packet, const ReliablePacket &packet_) -> bool
 							{
@@ -762,10 +762,10 @@ namespace knet
 
 							for (auto &tPacket : splitPacketBuffer[packet.splitInfo.packetIndex])
 							{
-								bitStream.Write(tPacket.Data(), tPacket.Size());
+								bitStream2.Write(tPacket.Data(), tPacket.Size());
 							}
 
-							ReliablePacket completePacket{bitStream.Data(), bitStream.Size()};
+							ReliablePacket completePacket{ bitStream2.Data(), bitStream2.Size()};
 
 							completePacket.orderedInfo = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->orderedInfo;
 							completePacket.reliability = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->reliability;
@@ -927,13 +927,13 @@ namespace knet
 
 		BitStream bitStream{MAX_MTU_SIZE};
 
-		int32 min = -1;
-		int32 max = 0;
-		int32 writtenTo = 0;
-		uint32 writeCount = 0;
+		int32_t min = -1;
+		int32_t max = 0;
+		int32_t writtenTo = 0;
+		uint32_t writeCount = 0;
 
 		// Now write the range stuff to the bitstream
-		for (uint32 i = 0; i < acknowledgements.size(); ++i)
+		for (uint32_t i = 0; i < acknowledgements.size(); ++i)
 		{
 			if ((i+1 < acknowledgements.size()) && acknowledgements[i] == (acknowledgements[i + 1] - 1))
 			{ /* (Next-1) equals current, so its a range */
@@ -1033,12 +1033,12 @@ namespace knet
 		}
 	}
 
-	void ReliabilityLayer::SetOrderingChannel(uint8 ucChannel)
+	void ReliabilityLayer::SetOrderingChannel(uint8_t ucChannel)
 	{
 		orderingChannel = ucChannel;
 	}
 
-	uint8 ReliabilityLayer::GetOrderingChannel() const
+	uint8_t ReliabilityLayer::GetOrderingChannel() const
 	{
 		return orderingChannel;
 	}
@@ -1055,11 +1055,11 @@ namespace knet
 		std::vector<ReliablePacket> splitPackets;
 		splitPackets.reserve(packet.Size() / (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1);
 
-		uint32 dataOffset = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
+		uint32_t dataOffset = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
 
-		uint16 splitIndex = 0;
+		uint16_t splitIndex = 0;
 
-		uint16 splitPacketNumber = flowControlHelper.GetSplitPacketIndex();
+		uint16_t splitPacketNumber = flowControlHelper.GetSplitPacketIndex();
 
 		for (int chunkSize = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1; dataOffset < packet.Size();)
 		{
@@ -1102,25 +1102,25 @@ namespace knet
 				chunkSize = packet.Size() - dataOffset;
 				dataOffset += chunkSize;
 
-				ReliablePacket tmpPacket(packet.Data() + dataOffset - chunkSize, chunkSize);
+				ReliablePacket tmpPacket2(packet.Data() + dataOffset - chunkSize, chunkSize);
 
 				// Set up packet 
 				// We need index to merge them together on the remote side
 				// 
 				// It works similar to the ordered stuff
 
-				tmpPacket.isSplit = true;
-				tmpPacket.splitInfo.index = splitIndex++;
-				tmpPacket.splitInfo.packetIndex = splitPacketNumber;
+				tmpPacket2.isSplit = true;
+				tmpPacket2.splitInfo.index = splitIndex++;
+				tmpPacket2.splitInfo.packetIndex = splitPacketNumber;
 
 
 				// In case of Ordered packets only the first packet need the ordered info
 				// This reduces the overhead
 
-				if (tmpPacket.splitInfo.index > 0)
-					tmpPacket.reliability = PacketReliability::RELIABLE;
+				if (tmpPacket2.splitInfo.index > 0)
+					tmpPacket2.reliability = PacketReliability::RELIABLE;
 
-				splitPackets.push_back(std::move(tmpPacket));
+				splitPackets.push_back(std::move(tmpPacket2));
 			}
 		}
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Crix-Dev
+* Copyright (C) 2014-2015 Crix-Dev
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,7 +37,7 @@
 namespace knet
 {
 
-	enum PacketPriority : uint8
+	enum PacketPriority : uint8_t
 	{
 		LOW,
 		MEDIUM,
@@ -46,7 +46,7 @@ namespace knet
 		MAX,
 	};
 
-	enum class PacketReliability : uint8
+	enum class PacketReliability : uint8_t
 	{
 		UNRELIABLE = 0,
 		UNRELIABLE_SEQUENCED,
@@ -58,34 +58,34 @@ namespace knet
 		MAX,
 	};
 
-	using OrderedIndexType = uint16;
+	using OrderedIndexType = uint16_t;
 
 	struct OrderedInfo
 	{
 		OrderedIndexType index;
-		uint8 channel;
+		uint8_t channel;
 	};
 
 	struct SplitInfo
 	{
-		uint16 index;
-		uint16 packetIndex;
-		uint8 isEnd = false;
+		uint16_t index;
+		uint16_t packetIndex;
+		uint8_t isEnd = false;
 	};
 
-	using SequenceIndexType = uint16;
+	using SequenceIndexType = uint16_t;
 
 	struct SequenceInfo
 	{
 		SequenceIndexType index;
-		uint8 channel;
+		uint8_t channel;
 	};
 
 	struct ReliablePacket
 	{
 	private:
 		std::unique_ptr<char> pData = nullptr;
-		uint16 dataLength = 0;
+		uint16_t dataLength = 0;
 
 	public:
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
@@ -109,16 +109,16 @@ namespace knet
 
 
 		// Workaround to make it compile on windows, move only type in list in map e.g. std::map<int, std::vector<ReliablePacket>>
-		ReliablePacket(const ReliablePacket &other)
-		{
-			UNREFERENCED_PARAMETER(other);
-			assert(0);
-		}
-		ReliablePacket & operator=(const ReliablePacket &other)
-		{
-			UNREFERENCED_PARAMETER(other);
-			assert(0);
-		}
+		//ReliablePacket(const ReliablePacket &other)
+		//{
+		//	UNREFERENCED_PARAMETER(other);
+		//	assert(0);
+		//}
+		//ReliablePacket & operator=(const ReliablePacket &other)
+		//{
+		//	UNREFERENCED_PARAMETER(other);
+		//	assert(0);
+		//}
 
 		const char * Data()
 		{
@@ -135,7 +135,7 @@ namespace knet
 
 			pData = std::unique_ptr<char>{new char[length]};
 			memcpy(pData.get(), data, length);
-			dataLength = static_cast<uint16>(length);
+			dataLength = static_cast<uint16_t>(length);
 		}
 
 		ReliablePacket(ReliablePacket &&other)

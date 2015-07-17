@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Crix-Dev
+* Copyright (C) 2014-2015 Crix-Dev
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,40 +29,17 @@
 */
 
 #pragma once
-
-#include "Common.h"
-
 /*
-	TODO: improve
+TODO: improve
 */
 
 #include <cstddef>
 #include <functional>
 #include <type_traits>
-
-template<int...> struct int_sequence { };
-
-template<int N, int... Is> struct make_int_sequence
-: make_int_sequence<N - 1, N - 1, Is...>
-{ };
-
-
-template<int... Is> struct make_int_sequence<0, Is...>
-	: int_sequence<Is...>{ };
-
-template<int> // begin with 0 here!
-struct placeholder_template
-{ };
-
-
-
-namespace std
-{
-	template<int N>
-	struct is_placeholder< placeholder_template<N> >
-		: integral_constant<int, N + 1> // the one is important
-	{ };
-}
+#include <mutex>
+#include <algorithm>
+#include <vector>
+#include "function_traits.h"
 
 namespace knet
 {
@@ -72,9 +49,9 @@ namespace knet
 		void * owner = nullptr;
 	public:
 
-		void SetOwner(void * owner)
+		void SetOwner(void * _owner)
 		{
-			this->owner = owner;
+			this->owner = _owner;
 		}
 
 		void * GetOwner()
@@ -86,7 +63,7 @@ namespace knet
 	template<typename... Args>
 	class EventN : public Event
 	{
-		using argTuple = std::tuple<Args...>;
+		typedef std::tuple<Args...> argTuple;
 	private:
 		std::function<bool(Args... arg)> callback;
 	public:
@@ -112,210 +89,75 @@ namespace knet
 		}
 	};
 
-	template<class F>
-	struct function_traits;
-
-	// function pointer
-	template<class R, class... Args>
-	struct function_traits<R(*)(Args...)> : public function_traits<R(Args...)>
-	{ };
-
-	// member function pointer
-	template<class C, class R, class... Args>
-	struct function_traits<R(C::*)(Args...)> : public function_traits<R(C&, Args...)>
-	{ };
-
-	// const member function pointer
-	template<class C, class R, class... Args>
-	struct function_traits<R(C::*)(Args...) const> : public function_traits<R(C&, Args...)>
-	{ };
-
-	// member object pointer
-	template<class C, class R>
-	struct function_traits<R(C::*)> : public function_traits<R(C&)>
-	{ };
-
-
 	template<typename T>
-	struct remove_first_type
+	struct remove_first_type_event
 	{ };
 
 	template<typename T, typename... Ts>
-	struct remove_first_type<std::tuple<T, Ts...>>
+	struct remove_first_type_event < std::tuple<T, Ts...> >
 	{
-		using event = EventN<Ts...>;
+		using eventT = EventN < Ts... >;
 	};
-
-		// functor
-	template<class F>
-	struct function_traits
-	{
-	    private:
-	        using call_type = function_traits<decltype(&F::operator())>;
-	    public:
-	        using return_type = typename call_type::return_type;
-	 
-	        static constexpr std::size_t arity = call_type::arity - 1;
-	 
-	        template <std::size_t N>
-	        struct argument
-	        {
-	            static_assert(N < arity, "error: invalid parameter index.");
-	            using type = typename call_type::template argument<N+1>::type;
-	        };
-
-	        struct eventT
-			{
-				using eventType = typename call_type::eventT::eventType;
-			};
-	};
-
-
-	template<class R, class... Args>
-	struct function_traits<R(Args...)>
-	{
-	public:
-		using argTuple = std::tuple<Args...>;
-		using argTup = remove_first_type<argTuple>;
-
-		using return_type = R;
-
-		static constexpr int arity = sizeof...(Args);
-
-		template <int N>
-		struct argument
-		{
-			static_assert(N < arity, "error: invalid parameter index.");
-			using type = typename std::tuple_element<N, std::tuple<Args...>>::type;
-		};
-
-		struct eventT
-		{
-			using eventType = typename argTup::event;
-		};
-
-		struct eventObj
-		{
-			using eventType = EventN<Args...>;
-		};
-	};
-
-
-
-	struct bind_helper
-	{
-		template<class _Rx,
-		class... _Ftypes,
-		int... Is>
-		static auto bind(_Rx(*_Pfx)(_Ftypes...), int_sequence<Is...>)
-		{
-			return std::bind(_Pfx, placeholder_template<Is>{}...);
-		}
-
-
-		template<class _Rx,
-		class... _Ftypes>
-		static auto bind(_Rx(*_Pfx)(_Ftypes...))
-		{
-			return bind<_Rx, _Ftypes...>(_Pfx, make_int_sequence<sizeof...(_Ftypes)>{});
-		}
-	};
-
 
 	// TEMPLATE FUNCTION bind (implicit return type)
 	template<class _Fun>
-		Event *
-		mkEventN(_Fun&& _Fx)
-		{	// bind a function object
-			using Traits = function_traits<_Fun>;
-			return new typename Traits::eventT::eventType(_Fx);
-		}
+	Event *
+		mkEventN(_Fun && _Fx)
+	{	// bind a function object
+
+		typedef typename std::remove_reference<decltype(::std::forward<_Fun>(_Fx))>::type ltype_const;
+
+		using Traits = function_traits<ltype_const>;
+		return new typename remove_first_type_event<typename Traits::argT::args>::eventT(_Fx);
+	}
 
 	template<class _Rx,
 	class... _Ftypes,
 	class... _Types>
 		Event *
 		mkEventN(_Rx(*_Pfx)(_Ftypes...), _Types&&... _Args)
-		{	// bind a function pointer
-			
-			auto bn = bind_helper::bind<_Rx, _Ftypes...>(_Pfx);
-			return new EventN<_Ftypes...>(bn);
-		}
+	{	// bind a function pointer
 
-	struct this_bind_helper
-	{
-		template<class _Rx,
-		class _Farg0,
-		class _Types,
-		int... Is>
-		static auto bind(_Rx _Farg0::* const _Pmd, _Types _this, int_sequence<Is...>)
-		{
-			return std::bind(_Pmd, _this, placeholder_template<Is>{}...);
-		}
-
-		template<int N, class _Rx,
-		class _Farg0,
-		class _Types>
-		static auto bind(_Rx _Farg0::* const _Pmd, _Types _Args)
-		{
-			return bind<_Rx, _Farg0, _Types>(_Pmd, _Args, make_int_sequence<N - 1>{});
-		}
-	};
+		auto bn = bind_helper::bind<_Rx, _Ftypes...>(_Pfx);
+		return new EventN<_Ftypes...>(bn);
+	}
 
 	template<class _Rx,
-	class _Farg0,
-	class _Types>
+		typename _Farg0,
+		typename _Types>
 		Event *
 		mkEventN(_Rx _Farg0::* const _Pmd, _Types&& _Args)
-		{	// bind a wrapped member object pointer
-			using Traits = function_traits<_Rx _Farg0::*>;
-			auto bn = this_bind_helper::bind<Traits::arity, _Rx, _Farg0, _Types>(_Pmd, _Args);
-			return new typename Traits::eventT::eventType(bn);
-		}
-
-
-#if 0
-	template<class _Ret,
-	class _Fun,
-	class... _Types>
-		typename std::enable_if<!std::is_pointer<_Fun>::value
-		&& !std::is_member_pointer<_Fun>::value,
-		Event*>::type mkEventN(_Fun&& _Fx, _Types&&... _Args)
-		{	// bind a function object
-			return nullptr;
-		}
-
-	template<class _Ret,
-	class _Rx,
-	class... _Ftypes,
-	class... _Types>
-		typename std::enable_if<!std::is_same<_Ret, _Rx>::value,
-		Event *>::type
-		mkEventN(_Rx(*_Pfx)(_Ftypes...), _Types&&... _Args)
-		{	// bind a function pointer
-			return nullptr;
-		}
-
-
-	template<class _Ret,
-	class _Rx,
-	class _Farg0,
-	class... _Types>
-		typename std::enable_if<!std::is_same<_Ret, _Rx>::value
-		&& std::is_member_object_pointer<_Rx _Farg0::* const>::value,
-		Event*>::type mkEventN(_Rx _Farg0::* const _Pmd, _Types&&... _Args)
-		{
-			return nullptr;
-		}
-#endif
-	
-	//typedef int eventIds;
+	{	// bind a wrapped member object pointer
+		using Traits = function_traits < _Rx _Farg0::* >;
+		auto bn = this_bind_helper::bind<Traits::arity, _Rx, _Farg0, _Types>(_Pmd, _Args);
+		return new typename remove_first_type_event<typename Traits::argT::args>::eventT(bn);
+	}
 
 	template<typename eventIds>
 	class EventHandler
 	{
 	private:
-		std::vector<std::pair<eventIds, std::vector<Event*>>> events;
+		std::vector<std::pair<eventIds, std::vector<Event*>>> _events;
+		std::recursive_mutex _vecMutex;
+
+		void AddEventInternal(eventIds id, Event* pEvent, void * owner = nullptr)
+		{
+			if (!pEvent)
+				return;
+
+			pEvent->SetOwner(owner);
+
+			std::lock_guard<std::recursive_mutex> lk{ _vecMutex };
+			decltype(auto) events = GetEventById(id);
+			if (events.empty())
+			{
+				_events.push_back({ id, std::vector < Event* > {pEvent} });
+			}
+			else
+			{
+				events.push_back(pEvent);
+			}
+		}
 
 	public:
 		enum CallResult : char
@@ -329,42 +171,38 @@ namespace knet
 
 		void RemoveEventsByOwner(void * owner)
 		{
-			for(auto &eventCon : events)
+			std::lock_guard<std::recursive_mutex> lk{ _vecMutex };
+			for (auto it = _events.begin(); it != _events.end();)
 			{
-				eventCon.second.erase(std::remove_if(eventCon.second.begin(), eventCon.second.end(), [owner ](Event * pEvent) -> bool {
-					if(pEvent->GetOwner() == owner)
+				auto& eventCon = *it;
+				eventCon.second.erase(std::remove_if(eventCon.second.begin(), eventCon.second.end(), [owner](Event * pEvent) -> bool
+				{
+					if (pEvent->GetOwner() == owner)
 					{
 						delete pEvent;
 						return true;
 					}
 					else
 						return false;
-				}));
+				}), eventCon.second.end());
+
+				if (eventCon.second.empty())
+					it = _events.erase(it);
+				else
+					++it;
 			}
 		}
 
-		void AddEvent(eventIds id, Event* pEvent, void * owner = nullptr)
+		template<typename ...Args>
+		void AddEvent(eventIds id, void* owner, Args&&... args)
 		{
-			if (!pEvent)
-				return;
-
-			pEvent->SetOwner(owner);
-
-			for (auto& entry : events)
-			{
-				if (entry.first == id)
-				{
-					entry.second.push_back(pEvent);
-					return;
-				}
-			}
-
-			events.push_back({id, std::vector<Event*> {pEvent}});
+			AddEventInternal(id, mkEventN(std::forward<Args>(args)...), owner);
 		}
 
-		const std::vector<Event *>& GetEventById(eventIds id)
+		std::vector<Event *>& GetEventById(eventIds id)
 		{
-			for (const auto& entry : events)
+			std::lock_guard<std::recursive_mutex> lk{ _vecMutex };
+			for (auto& entry : _events)
 			{
 				if (entry.first == id)
 					return entry.second;
@@ -377,42 +215,48 @@ namespace knet
 		template<typename... Args>
 		CallResult Call(eventIds id, Args... args)
 		{
-			for (const auto& entry : events)
+			std::lock_guard<std::recursive_mutex> lk{ _vecMutex };
+			decltype(auto) events = GetEventById(id);
+			if (!events.empty())
 			{
-				if (entry.first == id)
+				CallResult ret = CallResult::MAX_RESULT;
+
+				for (auto &event : events)
 				{
-					CallResult ret = CallResult::MAX_RESULT;
-
-					for (auto &event : entry.second)
+					if (EventN<Args...>::cast(event)->Invoke(args...))
 					{
-						if (EventN<Args...>::cast(event)->Invoke(args...))
-						{
-							// If nothing was set set it to ALL_TRUE;
-							// If all previous was FALSE set it to BOTH
+						// If nothing was set set it to ALL_TRUE;
+						// If all previous was FALSE set it to BOTH
 
-							if (ret == CallResult::MAX_RESULT)
-								ret = CallResult::ALL_TRUE;
-							else if (ret == CallResult::ALL_FALSE)
-								ret = CallResult::BOTH;
-						}
-						else
-						{
-							// If all were TRUE or BOTH was set set it to BOTH
-							// If nothing was set, then set ti to ALL_FALSE
-							if (ret == CallResult::ALL_TRUE || ret == CallResult::BOTH)
-								ret = CallResult::BOTH;
-							else
-								ret = CallResult::ALL_FALSE;
-						}
+						if (ret == CallResult::MAX_RESULT)
+							ret = CallResult::ALL_TRUE;
+						else if (ret == CallResult::ALL_FALSE)
+							ret = CallResult::BOTH;
 					}
-					return ret;
+					else
+					{
+						// If all were TRUE or BOTH was set, set it to BOTH
+						// If nothing was set, then set it to ALL_FALSE
+						if (ret == CallResult::ALL_TRUE || ret == CallResult::BOTH)
+							ret = CallResult::BOTH;
+						else
+							ret = CallResult::ALL_FALSE;
+					}
 				}
+				return ret;
 			}
 			return NO_EVENT;
 		}
 
-		explicit operator bool() const NOEXCEPT
+		explicit operator bool() const noexcept
 		{
+			return !(_events.size() == 0);
+		};
+
+		bool operator ()(eventIds id) noexcept
+		{
+			std::lock_guard<std::recursive_mutex> lk{ _vecMutex };
+			decltype(auto) events = GetEventById(id);
 			return !(events.size() == 0);
 		};
 	};

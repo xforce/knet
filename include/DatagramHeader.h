@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2014 Crix-Dev
+* Copyright (C) 2014-2015 Crix-Dev
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -33,10 +33,12 @@
 #include "Common.h"
 #include "BitStream.h"
 
+#include <cstdint>
+
 namespace knet
 {
 
-	using SequenceNumberType = int32;
+	using SequenceNumberType = int32_t;
 
 	class DatagramHeader
 	{
