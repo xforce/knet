@@ -40,6 +40,42 @@
 namespace knet
 {
 	// TODO: clean up
+	struct SystemAddress
+	{
+		std::string address;
+
+		bool IsUnassigned()
+		{
+			return address == "unassigned";
+		}
+
+		bool operator ==(const SystemAddress &other) const
+		{
+			return other.address == address;
+		}
+	};
+
+	struct EndPointInformation
+	{
+		std::string host;
+		uint16_t port;
+	};
+
+	struct StartupInformation
+	{
+		int maxConnections = 1;
+		std::string password;
+		std::vector<EndPointInformation> localEndPoints;
+		bool isIncoming = false; // Allowed to accept incoming connections;
+	};
+
+	struct ConnectInformation
+	{
+		std::string host;
+		uint16_t port;
+		std::string password;
+	};
+
 	class Peer
 	{
 	private:
@@ -65,20 +101,21 @@ namespace knet
 		bool reorderRemoteSystems = true;
 		uint32_t activeSystems = 0;
 
+
+		System& GetSystemByAddress(SystemAddress address)
+		{
+
+		}
 	public:
 		Peer() noexcept;
 		virtual ~Peer() noexcept;
 
 		std::shared_ptr<knet::ISocket> GetSocket() noexcept;
 
-		void Start(const std::string &strAddress, uint16_t usPort) noexcept;
-
-		void Send(System &peer, const char * data, size_t len, bool im = false) noexcept;
-
-		void Connect(const std::string &strRemoteAddress, uint16_t usPort) noexcept;
+		void Start(const StartupInformation&) noexcept;
+		void Connect(const ConnectInformation&) noexcept;
 
 		void Process() noexcept;
-
 	private:
 		/* Event handlers */
 		bool OnReceive(knet::InternalRecvPacket* pPacket) noexcept;

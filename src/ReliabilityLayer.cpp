@@ -45,7 +45,6 @@ namespace knet
 
 		highestSequencedReadIndex.fill(0);
 
-		// Use the better method, like numeric_limits
 		resendBuffer.reserve(512);
 	}
 
@@ -87,19 +86,19 @@ namespace knet
 
 	void ReliabilityLayer::SetTimeout(const std::chrono::milliseconds &time)
 	{
-		m_msTimeout = time;
+		_timeout = time;
 	}
 
 	const std::chrono::milliseconds& ReliabilityLayer::GetTimeout() const
 	{
-		return m_msTimeout;
+		return _timeout;
 	}
 
-	void ReliabilityLayer::Send(const char *data, size_t numberOfBitsToSend, PacketPriority priority, PacketReliability reliability)
+	void ReliabilityLayer::Send(const char *data, size_t numberofBytesToSend, PacketPriority priority, PacketReliability reliability)
 	{
 		if (priority == PacketPriority::IMMEDIATE)
 		{
-			BitStream bitStream{BitsToBytes(numberOfBitsToSend) + 20};
+			BitStream bitStream{ numberofBytesToSend + 20};
 
 			// Just send the packet
 			DatagramPacket* pDatagramPacket = new DatagramPacket;
@@ -120,7 +119,7 @@ namespace knet
 			}
 
 			pDatagramPacket->GetSizeToSend();
-			ReliablePacket sendPacket{data, BitsToBytes(numberOfBitsToSend)};
+			ReliablePacket sendPacket{data, numberofBytesToSend };
 			sendPacket.reliability = reliability;
 			sendPacket.priority = priority;
 
@@ -152,7 +151,7 @@ namespace knet
 		}
 		else
 		{
-			ReliablePacket sendPacket{data, BitsToBytes(numberOfBitsToSend)};
+			ReliablePacket sendPacket{data, numberofBytesToSend};
 			sendPacket.reliability = reliability;
 			sendPacket.priority = priority;
 
@@ -181,7 +180,7 @@ namespace knet
 		if(m_pSocket)
 		{
 			// Check for timeout
-			if(((curTime - lastReceiveFromRemote).count() >= 5000))
+			if(((curTime - lastReceiveFromRemote) >= _timeout))
 			{
 				DEBUG_LOG("Disconnect: Timeout");
 				// NOW send disconnect event so it will be removed in our peer

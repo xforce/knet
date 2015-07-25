@@ -54,8 +54,6 @@ namespace knet
 					packets.push_back(std::move(packet));
 				}
 			}
-
-			/*packets.shrink_to_fit();*/
 		}
 
 		size_t GetSizeToSend()

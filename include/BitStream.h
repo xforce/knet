@@ -271,7 +271,7 @@ namespace knet
 		other._readOffset = 0;
 	}
 
-	inline BitStream::BitStream(unsigned char* _data, const size_t lengthInBytes, bool _copyData) noexcept
+	inline BitStream::BitStream(unsigned char* data, const size_t lengthInBytes, bool _copyData) noexcept
 	{
 		_bitsUsed = BytesToBits(lengthInBytes);
 		_readOffset = 0;
@@ -297,10 +297,10 @@ namespace knet
 			/*else
 			pData = 0;*/
 
-			memcpy(_data, _data, (size_t)lengthInBytes);
+			memcpy(_data, data, (size_t)lengthInBytes);
 		}
 		else
-			_data = (unsigned char*)_data;
+			_data = (unsigned char*)data;
 	}
 
 	inline BitStream::~BitStream() noexcept

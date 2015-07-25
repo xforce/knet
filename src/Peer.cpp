@@ -149,7 +149,7 @@ namespace knet
 	{
 		if (isConnected)
 		{
-			peer.reliabilityLayer.Send(data, BytesToBits(len), (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
+			peer.reliabilityLayer.Send(data, len, (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
 		}
 		else
 			DEBUG_LOG("Not connected");
@@ -171,6 +171,8 @@ namespace knet
 			}
 		}
 
+		// The system has not established a connetion yet, so we handle it with our own internal reliablity layer
+		// Is this idea/system crap?!
 		reliabilityLayer.OnReceive(pPacket);
 
 		return true;

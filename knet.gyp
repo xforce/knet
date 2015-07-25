@@ -1,7 +1,7 @@
 {
 	'variables' : {
 		#'logger_enabled': '<!pymod_do_main(find_logger)',
-		'knet_target_type%': 'static_library',
+		'knet_target_type%': 'executable',
 	},
 	'targets': [
 		{
@@ -36,6 +36,11 @@
 						'_RAKNET_DLL',
 						'_WINSOCK_DEPRECATED_NO_WARNINGS',
 					],
+					'VCLinkerTool': {
+				        'AdditionalDependencies': [
+				          'ws2_32.lib',
+				        ],
+					},
 					'link_settings':  {
 						'libraries': [ '-lwinmm.lib', '-lws2_32.lib' ],
 					},

@@ -5,7 +5,7 @@
     'component%': 'static_library',
     'msvs_multi_core_compile%': '1',
     'optimized_debug%': '0',
-    'knet_target_type%': 'static_library',
+    'knet_target_type%': 'executable',
     'variables': {
       'variables': {
         'variables': {
@@ -34,29 +34,86 @@
     'target_arch%': '<(target_arch)',
     'werror%': '-Werror',
 },
+
+
+
+
 'target_defaults': {
-    'default_configuration': 'Debug',
-    'configurations': {
-      'DebugBaseCommon': {
-        'cflags': [ '-g', '-O0' ],
-        'conditions': [
-          ['(target_arch=="ia32" or target_arch=="x87") and \
-            OS=="linux"', {
-            'defines': [
-              '_GLIBCXX_DEBUG'
-            ],
-          }],
-        ],
-      },
-      'Optdebug': {
-        'inherit_from': [ 'DebugBaseCommon', 'DebugBase2' ],
-      },
-      'Debug': {
-        # Xcode insists on this empty entry.
-      },
-      'Release': {
-        # Xcode insists on this empty entry.
-      },
+  'default_configuration': 'Debug',
+  'configurations': {
+    'DebugBaseCommon': {
+      'cflags': [ '-g', '-O0' ],
+      'conditions': [
+        ['(target_arch=="ia32" or target_arch=="x87") and \
+          OS=="linux"', {
+          'defines': [
+            '_GLIBCXX_DEBUG'
+          ],
+        }],
+      ],
+    },
+    'Optdebug': {
+      'inherit_from': [ 'DebugBaseCommon', 'DebugBase2' ],
+    },
+    'Debug': {
+      # Xcode insists on this empty entry.
+    },
+    'Release': {
+      # Xcode insists on this empty entry.
     },
   },
+},
+'conditions': [
+  ['OS=="win"', {
+    'target_defaults': {
+      'defines': [
+        '_CRT_SECURE_NO_DEPRECATE',
+        '_CRT_NONSTDC_NO_DEPRECATE',
+        '_USING_V110_SDK71_',
+      ],
+      'msvs_settings': {
+        'VCCLCompilerTool': {
+          'MinimalRebuild': 'false',
+          'BufferSecurityCheck': 'true',
+          'EnableFunctionLevelLinking': 'true',
+          'RuntimeTypeInfo': 'true',
+          'DebugInformationFormat': '4',
+          'Detect64BitPortabilityProblems': 'false',
+          'conditions': [
+            [ 'msvs_multi_core_compile', {
+              'AdditionalOptions': ['/MP'],
+            }],
+          ],
+        },
+        'VCLibrarianTool': {
+          'AdditionalOptions': ['/ignore:4221'],
+          'conditions': [
+            ['target_arch=="x64"', {
+              'TargetMachine': '17',  # x64
+            }, {
+              'TargetMachine': '1',  # ia32
+            }],
+          ],
+        },
+        'VCLinkerTool': {
+          'GenerateDebugInformation': 'true',
+          'MapFileName': '$(OutDir)\\$(TargetName).map',
+          'ImportLibrary': '$(OutDir)\\lib\\$(TargetName).lib',
+          'FixedBaseAddress': '1',
+          # LinkIncremental values:
+          #   0 == default
+          #   1 == /INCREMENTAL:NO
+          #   2 == /INCREMENTAL
+          'LinkIncremental': '2',
+          # SubSystem values:
+          #   0 == not set
+          #   1 == /SUBSYSTEM:CONSOLE
+          #   2 == /SUBSYSTEM:WINDOWS
+          'SubSystem': '1',
+        },
+      },
+    },
+  }],  # OS=="win"
+],
+
 }

@@ -136,7 +136,7 @@ namespace knet
 
 		using milliSecondsPoint = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
 
-		std::chrono::milliseconds m_msTimeout = std::chrono::milliseconds(10000);
+		std::chrono::milliseconds _timeout = std::chrono::milliseconds(10000);
 		milliSecondsPoint firstUnsentAck;
 		milliSecondsPoint lastReceiveFromRemote;
 
@@ -175,7 +175,7 @@ namespace knet
 		ReliabilityLayer(ISocket * _socket = nullptr);
 		virtual ~ReliabilityLayer();
 
-		void Send(const char *data, size_t numberOfBitsToSend, PacketPriority priority = PacketPriority::MEDIUM, PacketReliability reliability = PacketReliability::RELIABLE);
+		void Send(const char *, size_t, PacketPriority = PacketPriority::MEDIUM, PacketReliability = PacketReliability::RELIABLE);
 
 		void Process();
 
