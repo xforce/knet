@@ -1,7 +1,7 @@
-#KeksNL
+#Meh
 ======
 
-Keks Network Library
+TODO
 
 ## Code status
 
@@ -13,9 +13,7 @@ TODO
 
 ## Requirements
 
-- Visual Studio 2013 with November C++ Compiler Nov 2013 CTP
-- or GCC 4.7
-- CMake 2.8
+TODO
 
 ## Installation
 

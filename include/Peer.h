@@ -103,9 +103,7 @@ namespace knet
 
 
 		System& GetSystemByAddress(SystemAddress address)
-		{
-
-		}
+		{}
 	public:
 		Peer() noexcept;
 		virtual ~Peer() noexcept;

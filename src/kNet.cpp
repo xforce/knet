@@ -79,8 +79,17 @@ int main(int argc, char** argv)
 			const char *szAddress = argv[2];
 			unsigned short usPort = static_cast<unsigned short>(std::atoi(argv[3]));
 			knet::Peer * pPeer = new knet::Peer();
-			pPeer->Start(0, usPort + 1);
-			pPeer->Connect(szAddress, usPort);
+
+			knet::StartupInformation startInfo;
+			knet::EndPointInformation endPoint;
+			endPoint.port = usPort + 1;
+			startInfo.localEndPoints.push_back(endPoint);
+
+			pPeer->Start(startInfo);
+			
+			
+			knet::ConnectInformation connectInfo = { szAddress, usPort };
+			pPeer->Connect(connectInfo);
 
 			for (;;)
 			{
@@ -95,9 +104,12 @@ int main(int argc, char** argv)
 			auto usPort = static_cast<unsigned short>(std::atoi(argv[2]));
 			knet::Peer * pPeer = new knet::Peer();
 
-			// Start the server
-			pPeer->Start(0, usPort);
+			knet::StartupInformation startInfo;
+			knet::EndPointInformation endPoint;
+			endPoint.port = usPort;
+			startInfo.localEndPoints.push_back(endPoint);
 
+			pPeer->Start(startInfo);
 
 			for (;;)
 			{
@@ -275,29 +287,7 @@ int main(int argc, char** argv)
 #endif
 #pragma endregion
 
-	DEBUG_LOG("Startup [performance]");
-
-
-
-
-	DEBUG_LOG("Size %d", sizeof(knet::ReliabilityLayer));
-
-	peer1 = new knet::Peer();
-	peer2 = new knet::Peer();
-	peer3 = new knet::Peer();
-
-	/*DEBUG_LOG("Peer1 == {%p}", peer1);
-	DEBUG_LOG("Peer2 == {%p}", peer2);
-	DEBUG_LOG("Peer3 == {%p}", peer3);*/
-
-	peer1->Start("", 9999);
-	peer2->Start("", 10000);
-	peer3->Start("", 10001);
-
-	peer1->Connect("127.0.0.1", 10000);
-	peer1->Connect("127.0.0.1", 10001);
-
-	//peer2->Connect("127.0.0.1", 9999);
+	DEBUG_LOG("Startup");
 
 	start = std::chrono::high_resolution_clock::now().min();
 
@@ -323,9 +313,5 @@ int main(int argc, char** argv)
 			start = std::chrono::high_resolution_clock::now();
 		}
 #endif
-
-		peer1->Process();
-		peer2->Process();
-		peer3->Process();
 	}
 }

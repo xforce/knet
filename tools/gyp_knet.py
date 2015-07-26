@@ -31,7 +31,7 @@ if __name__ == '__main__':
     common_fn  = os.path.join(node_root, 'common.gypi')
     options_fn = os.path.join(node_root, 'config.gypi')
   else:
-    args.append(os.path.join(os.path.abspath(node_root), 'node.gyp'))
+    args.append(os.path.join(os.path.abspath(node_root), 'knet.gyp'))
     common_fn  = os.path.join(os.path.abspath(node_root), 'common.gypi')
     options_fn = os.path.join(os.path.abspath(node_root), 'config.gypi')
 

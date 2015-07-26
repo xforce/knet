@@ -68,19 +68,19 @@ namespace knet
 		return _socket;
 	}
 
-	void Peer::Start(const std::string & strAddress, uint16_t usPort) noexcept
+	void Peer::Start(const StartupInformation& info) noexcept
 	{
 		knet::SocketBindArguments bi;
 
-		bi.usPort = usPort;
-		bi.szHostAddress = strAddress;
+		bi.usPort = info.localEndPoints.at(0).port;
+		bi.szHostAddress = info.localEndPoints.at(0).host;
 
 		_socket->Bind(bi);
 		_socket->StartReceiving();
 	}
 
 
-	void Peer::Connect(const std::string &strRemoteAddress, uint16_t usPort) noexcept
+	void Peer::Connect(const ConnectInformation& info) noexcept
 	{
 		BitStream bitStream{MAX_MTU_SIZE};
 
@@ -99,9 +99,9 @@ namespace knet
 		SocketAddress remoteAdd = { 0 };
 
 		memset(&remoteAdd.address.addr4, 0, sizeof(sockaddr_in));
-		remoteAdd.address.addr4.sin_port = htons(usPort);
+		remoteAdd.address.addr4.sin_port = htons(info.port);
 
-		remoteAdd.address.addr4.sin_addr.s_addr = inet_addr(strRemoteAddress.c_str());
+		remoteAdd.address.addr4.sin_addr.s_addr = inet_addr(info.host.c_str());
 		remoteAdd.address.addr4.sin_family = AF_INET;
 
 		// Send the connection request to the remote
@@ -145,15 +145,15 @@ namespace knet
 
 	}
 
-	void Peer::Send(System &peer, const char * data, size_t len, bool im) noexcept
-	{
-		if (isConnected)
-		{
-			peer.reliabilityLayer.Send(data, len, (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
-		}
-		else
-			DEBUG_LOG("Not connected");
-	}
+	//void Peer::Send(System &peer, const char * data, size_t len, bool im) noexcept
+	//{
+	//	if (isConnected)
+	//	{
+	//		peer.reliabilityLayer.Send(data, len, (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
+	//	}
+	//	else
+	//		DEBUG_LOG("Not connected");
+	//}
 
 
 
