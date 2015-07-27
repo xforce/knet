@@ -48,8 +48,6 @@ namespace knet
 
 		reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::NEW_CONNECTION, this, 
 															&Peer::HandleNewConnection, this);
-
-		DEBUG_LOG("Local ReliabilityLayer {%p}", &reliabilityLayer);
 	}
 
 	Peer::~Peer() noexcept
@@ -75,6 +73,8 @@ namespace knet
 		bi.usPort = info.localEndPoints.at(0).port;
 		bi.szHostAddress = info.localEndPoints.at(0).host;
 
+		maxConnections = info.maxConnections;
+
 		_socket->Bind(bi);
 		_socket->StartReceiving();
 	}
@@ -82,6 +82,8 @@ namespace knet
 
 	void Peer::Connect(const ConnectInformation& info) noexcept
 	{
+		// FIXME: this should actually be done via the reliability layer somehow, maybe I have to modify the reliability layer to do that
+		// The reason is that we dont want that a connect request gets lost ;)
 		BitStream bitStream{MAX_MTU_SIZE};
 
 		DatagramHeader dh;
@@ -107,8 +109,6 @@ namespace knet
 		// Send the connection request to the remote
 		if (_socket)
 			_socket->Send(remoteAdd, bitStream.Data(), bitStream.Size());
-		else
-			DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
 	}
 
 	void Peer::Process() noexcept
@@ -124,7 +124,6 @@ namespace knet
 
 			reorderRemoteSystems = false;
 		}
-
 
 		if (activeSystems > 0)
 		{
@@ -207,8 +206,6 @@ namespace knet
 
 		if ((MessageID)pData[0] == MessageID::CONNECTION_REQUEST)
 		{
-			DEBUG_LOG("Connection request");
-
 			BitStream bitStream{MAX_MTU_SIZE};
 
 			DatagramHeader dh;
@@ -225,18 +222,12 @@ namespace knet
 
 			if (GetSocket())
 				GetSocket()->Send(remoteAddress, bitStream.Data(), bitStream.Size());
-			else
-				DEBUG_LOG("Invalid sender at [%s:%d]", __FILE__, __LINE__);
-
-			DEBUG_LOG("Send");
 		}
 		else if ((MessageID)pData[0] == MessageID::CONNECTION_ACCEPTED)
 		{
-			DEBUG_LOG("Remote accepted our connection");
-
 			this->isConnected = true;
 
-			// Makr the remote as connected
+			// Mark the remote as connected
 			for (auto &system : remoteSystems)
 			{
 				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
@@ -245,11 +236,12 @@ namespace knet
 					break;
 				}
 			}
+
+			this->_eventHandler.Call(PeerEvents::ConnectionAccepted);
 		}
 		else if ((MessageID)pData[0] == MessageID::CONNECTION_REFUSED)
 		{
 			this->isConnected = false;
-			DEBUG_LOG("The remote refused our connection request");
 		}
 		else
 		{
@@ -301,14 +293,19 @@ namespace knet
 		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::HANDLE_PACKET, this,
 															&Peer::HandlePacket, this);
 
-		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::CONNECTION_LOST_TIMEOUT, this,
+		// This event is so fucking dumb
+		system->reliabilityLayer.GetEventHandler().AddEvent(ReliabilityEvents::DISCONNECTED, this,
 													&Peer::HandleDisconnect, this);
 		remoteSystems.push_back(system);
 
 		++activeSystems;
-
-		DEBUG_LOG("New connection {%p} at %p", &system->reliabilityLayer, this);
 		return true;
 	};
+
+	void Peer::Stop()
+	{
+		_socket->StopReceiving(true);
+	}
+
 #pragma endregion
 };

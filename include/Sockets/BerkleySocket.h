@@ -30,9 +30,9 @@
 
 #pragma once
 
-#include "Common.h"
-
 #include "ISocket.h"
+
+#include "../internal/EventHandler.h"
 
 #ifdef WIN32
 #include <WinSock2.h>
@@ -50,14 +50,13 @@ namespace knet
 
 		std::thread receiveThread;
 		bool bRecvThreadRunning = false;
-		EventHandler<SocketEvents> eventHandler;
+		internal::EventHandler<SocketEvents> eventHandler;
 
 		void RecvFromLoop();
 
 		bool endThread = false;
 	public:
 		BerkleySocket();
-		BerkleySocket(decltype(eventHandler) eventHandler);
 		virtual ~BerkleySocket();
 
 		virtual bool Send(const SocketAddress &remoteSystem, const char* pData, size_t length) final;

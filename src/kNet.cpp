@@ -1,6 +1,4 @@
 
-#include <Common.h>
-
 #include "BitStream.h"
 
 #include "Sockets/BerkleySocket.h"
@@ -31,7 +29,6 @@ bool ahaskdj(knet::InternalRecvPacket*)
 bool PublicReceiveHandler(knet::InternalRecvPacket* pPacket)
 {
 	UNREFERENCED_PARAMETER(pPacket);
-	DEBUG_LOG("Public handler");
 	return true;
 }
 
@@ -67,9 +64,6 @@ int main(int argc, char** argv)
 
 	bit.Read(str1, str2);
 
-	DEBUG_LOG("%s %s\n", str1.c_str(), str2.c_str());
-
-	DEBUG_LOG("%d", sizeof(knet::OrderedInfo));
 
 	if(argc > 1)
 	{
@@ -97,221 +91,7 @@ int main(int argc, char** argv)
 			}
 		}
 		else if(!strncmp(argv[1], "s", 1))
-		{
-			
-
-			// Get the listening port
-			auto usPort = static_cast<unsigned short>(std::atoi(argv[2]));
-			knet::Peer * pPeer = new knet::Peer();
-
-			knet::StartupInformation startInfo;
-			knet::EndPointInformation endPoint;
-			endPoint.port = usPort;
-			startInfo.localEndPoints.push_back(endPoint);
-
-			pPeer->Start(startInfo);
-
-			for (;;)
-			{
-				pPeer->Process();
-			}
-		}
+		{ }
 		
-	}
-
-#pragma region Speed Test
-#if 0
-	std::random_device rd;
-	std::mt19937 rnd;
-	std::uniform_int_distribution<unsigned short> rndShort;
-	std::vector<unsigned short> vec;
-
-	for (int i = 0; i < 65530; ++i)
-	{
-		vec.push_back(i);
-	}
-
-	auto st = std::chrono::high_resolution_clock::now();
-
-	std::vector<unsigned short> sortVec;
-
-	for (auto i : vec)
-	{
-		sortVec.push_back(i);
-	}
-
-	std::sort(sortVec.begin(), sortVec.end());
-
-	DEBUG_LOG("Insert took %d ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-st).count());
-
-	st = std::chrono::high_resolution_clock::now();
-	DEBUG_LOG("Insert took %d ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - st).count());
-
-	std::vector<unsigned short> acknowledgements{sortVec};
-
-	acknowledgements.shrink_to_fit();
-
-
-	for(auto i : acknowledgements)
-	{
-		if(i == 0)
-		{
-			DEBUG_LOG("on {%p} contains 0", 0);
-		}
-	}
-
-	// Sort the unsorted vector so we can write the ranges
-	std::sort(acknowledgements.begin(), acknowledgements.end());
-
-	if(acknowledgements[0] == 1)
-		DEBUG_LOG("0 1 on {%p}", 0);
-
-	knet::BitStream bitStream;
-
-	int min = -1;
-	int max = 0;
-	int writtenTo = 0;
-	int writeCount = 0;
-
-	// Now write the range stuff to the bitstream
-	for (int i = 0; i < acknowledgements.size(); ++i)
-	{
-		if (acknowledgements[i] == (acknowledgements[i + 1] - 1))
-		{ /* (Next-1) equals current, so its a range */
-
-			if (min == -1)
-				min = acknowledgements[i];
-
-			max = acknowledgements[i];
-		}
-		else if (min == -1)
-		{ /* Not a range just a single value,
-		  because previous was not in row */
-			min = acknowledgements[i];
-			max = acknowledgements[i];
-			bitStream.Write<unsigned short>(min);
-			bitStream.Write<unsigned short>(max);
-
-			DEBUG_LOG("Write -1 %d %d", acknowledgements[i], acknowledgements[i]);
-
-			// Track the index we have written to
-			writtenTo = i;
-			writeCount++;
-
-			min = -1;
-		}
-		else
-		{
-			// First diff at next so write max to current and write info to bitStream
-			max = acknowledgements[i];
-			bitStream.Write<unsigned short>(min);
-			bitStream.Write<unsigned short>(max);
-
-			DEBUG_LOG("Write %d %d", min, max);
-
-			// Track the index we have written to
-			writtenTo = i;
-			writeCount++;
-
-			min = -1;
-		}
-	}
-
-	DEBUG_LOG("\n\n");
-
-	acknowledgements.clear();
-
-	knet::BitStream out;
-	out.Write(writeCount);
-	out.Write(bitStream.Data(), bitStream.Size());
-
-
-	writeCount = 0;
-	out.Read(writeCount);
-
-	for (int i = 0; i <= writeCount; ++i)
-	{
-		unsigned short min;
-		unsigned short max;
-		out.Read(min);
-		out.Read(max);
-
-		if (min < max)
-		{
-			for (int n = min; n <= max; ++n)
-				acknowledgements.push_back(n);
-		}
-		else if (min == max)
-			acknowledgements.push_back(min);
-	}
-
-
-	for (int i = 0; i < acknowledgements.size(); ++i)
-	{
-		if (acknowledgements[i] == (acknowledgements[i + 1] - 1))
-		{ /* (Next-1) equals current, so its a range */
-
-			if (min == -1)
-				min = acknowledgements[i];
-
-			max = acknowledgements[i];
-		}
-		else if (min == -1)
-		{ /* Not a range just a single value,
-		  because previous was not in row */
-			bitStream.Write(acknowledgements[i]);
-			bitStream.Write(acknowledgements[i]);
-
-			DEBUG_LOG("Write -1 %d %d", acknowledgements[i], acknowledgements[i]);
-
-			// Track the index we have written to
-			writtenTo = i;
-			writeCount++;
-		}
-		else
-		{
-			// First diff at next so write max to current and write info to bitStream
-			max = acknowledgements[i];
-			bitStream.Write(min);
-			bitStream.Write(max);
-
-			DEBUG_LOG("Write %d %d", min, max);
-
-			// Track the index we have written to
-			writtenTo = i;
-			writeCount++;
-
-			min = -1;
-		}
-	}
-#endif
-#pragma endregion
-
-	DEBUG_LOG("Startup");
-
-	start = std::chrono::high_resolution_clock::now().min();
-
-#ifdef WIN32
-	auto lastTitle = GetTickCount();
-#endif
-
-	for (;;)
-	{
-		if (count != 0)
-			packetsPerSec = (float)count / (float)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
-
-#ifdef WIN32
-		if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() > 1000)
-		{
-
-			char title[MAX_PATH] = {0};
-			sprintf_s(title, "Packets per Second sent by Socket: %d", countPerSec);
-			countPerSec = 0;
-			SetConsoleTitleA(title);
-			lastTitle = GetTickCount();
-
-			start = std::chrono::high_resolution_clock::now();
-		}
-#endif
 	}
 }

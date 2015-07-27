@@ -18,6 +18,7 @@
             ],
           },
           'VCLinkerTool': {
+            'ImageHasSafeExceptionHandlers': 'false',
             'LinkIncremental': '2',
           },
         },
@@ -144,6 +145,7 @@
         'defines': [
           'DEBUG',
           'WIN32_LEAN_AND_MEAN',
+          'NOMINMAX',
         ],
         'conditions': [
           ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="netbsd" or \

@@ -30,7 +30,6 @@
 
 #pragma once
 
-#include "Common.h"
 #include "DatagramHeader.h"
 #include "Sockets/SocketAddress.h"
 
@@ -59,11 +58,12 @@ namespace knet
 	};
 
 	using OrderedIndexType = uint16_t;
+	using OrderedChannelType = uint8_t;
 
 	struct OrderedInfo
 	{
 		OrderedIndexType index;
-		uint8_t channel;
+		OrderedChannelType channel;
 	};
 
 	struct SplitInfo
@@ -78,14 +78,14 @@ namespace knet
 	struct SequenceInfo
 	{
 		SequenceIndexType index;
-		uint8_t channel;
+		OrderedChannelType channel;
 	};
 
 	struct ReliablePacket
 	{
 	private:
-		std::unique_ptr<char> pData = nullptr;
-		uint16_t dataLength = 0;
+		std::unique_ptr<char> _data = nullptr;
+		uint16_t _dataLength = 0;
 
 	public:
 		PacketReliability reliability = PacketReliability::UNRELIABLE;
@@ -102,40 +102,24 @@ namespace knet
 
 		bool isSplit = false;
 
-		ReliablePacket()
-		{
-
-		}
-
-
-		// Workaround to make it compile on windows, move only type in list in map e.g. std::map<int, std::vector<ReliablePacket>>
-		//ReliablePacket(const ReliablePacket &other)
-		//{
-		//	UNREFERENCED_PARAMETER(other);
-		//	assert(0);
-		//}
-		//ReliablePacket & operator=(const ReliablePacket &other)
-		//{
-		//	UNREFERENCED_PARAMETER(other);
-		//	assert(0);
-		//}
+		ReliablePacket() = default;
 
 		const char * Data()
 		{
-			return pData.get();
+			return _data.get();
 		}
 
-		decltype(dataLength) Size()
+		decltype(_dataLength) Size()
 		{
-			return dataLength;
+			return _dataLength;
 		}
 
 		ReliablePacket(const char * data, ::size_t length)
 		{
 
-			pData = std::unique_ptr<char>{new char[length]};
-			memcpy(pData.get(), data, length);
-			dataLength = static_cast<uint16_t>(length);
+			_data = std::unique_ptr<char>{new char[length]};
+			memcpy(_data.get(), data, length);
+			_dataLength = static_cast<uint16_t>(length);
 		}
 
 		ReliablePacket(ReliablePacket &&other)
@@ -145,29 +129,26 @@ namespace knet
 				return;
 #endif
 
-			this->pData = std::move(other.pData);
+			this->_data = std::move(other._data);
 			this->priority = other.priority;
 			this->reliability = other.reliability;
-			this->dataLength = other.dataLength;
+			this->_dataLength = other._dataLength;
 			this->orderedInfo = other.orderedInfo;
 			this->splitInfo = other.splitInfo;
 			this->sequenceNumber = other.sequenceNumber;
 			this->isSplit = other.isSplit;
 
-			other.pData = nullptr;
+			other._data = nullptr;
 		}
 
 		~ReliablePacket()
 		{
-			pData = nullptr;
+			_data = nullptr;
 		}
 
 		void Serialize(BitStream &bitStream)
 		{
 			bitStream.Write(reliability);
-
-			// Write flags / 1 Byte
-			//bitStream.Write();
 
 			if (reliability == PacketReliability::RELIABLE_ORDERED)
 			{
@@ -184,8 +165,8 @@ namespace knet
 				bitStream.Write(splitInfo);
 			}
 
-			bitStream.Write(dataLength);
-			bitStream.Write(pData.get(), dataLength);
+			bitStream.Write(_dataLength);
+			bitStream.Write(_data.get(), _dataLength);
 		}
 
 		void Deserialize(BitStream &bitStream)
@@ -207,11 +188,11 @@ namespace knet
 				bitStream.Read(splitInfo);
 			}
 
-			bitStream.Read(dataLength);
+			bitStream.Read(_dataLength);
 
-			pData = std::unique_ptr<char>{new char[dataLength]};
+			_data = std::unique_ptr<char>{new char[_dataLength]};
 
-			bitStream.Read(pData.get(), dataLength);
+			bitStream.Read(_data.get(), _dataLength);
 		}
 
 		size_t GetSizeToSend()
@@ -220,7 +201,7 @@ namespace knet
 				+ (reliability == PacketReliability::RELIABLE_ORDERED ? sizeof(orderedInfo) : 0)
 				+ (reliability == PacketReliability::RELIABLE_SEQUENCED ? sizeof(sequenceInfo) : 0)
 				+ (reliability == PacketReliability::UNRELIABLE_SEQUENCED ? sizeof(sequenceInfo) : 0)
-				+ sizeof(dataLength) + dataLength;
+				+ sizeof(_dataLength) + _dataLength;
 		}
 
 		ReliablePacket & operator=(ReliablePacket &&other)
@@ -231,16 +212,16 @@ namespace knet
 				return *this;
 #endif
 
-			this->pData = std::move(other.pData);
+			this->_data = std::move(other._data);
 			this->priority = other.priority;
 			this->reliability = other.reliability;
-			this->dataLength = other.dataLength;
+			this->_dataLength = other._dataLength;
 			this->orderedInfo = other.orderedInfo;
 			this->splitInfo = other.splitInfo;
 			this->sequenceNumber = other.sequenceNumber;
 			this->isSplit = other.isSplit;
 
-			other.pData = nullptr;
+			other._data = nullptr;
 			return *this;
 		}
 	};

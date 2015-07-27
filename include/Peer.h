@@ -30,9 +30,7 @@
 
 #pragma once
 
-#include "Common.h"
-
-#include "EventHandler.h"
+#include "internal/EventHandler.h"
 
 #include "Sockets/BerkleySocket.h"
 #include "ReliabilityLayer.h"
@@ -76,6 +74,11 @@ namespace knet
 		std::string password;
 	};
 
+	enum class PeerEvents : uint8_t
+	{
+		ConnectionAccepted,
+	};
+
 	class Peer
 	{
 	private:
@@ -102,6 +105,8 @@ namespace knet
 		uint32_t activeSystems = 0;
 
 
+		knet::internal::EventHandler<PeerEvents> _eventHandler;
+
 		System& GetSystemByAddress(SystemAddress address)
 		{}
 	public:
@@ -110,8 +115,14 @@ namespace knet
 
 		std::shared_ptr<knet::ISocket> GetSocket() noexcept;
 
+		decltype(_eventHandler)& GetEventHandler() noexcept
+		{
+			return _eventHandler;
+		}
+
 		void Start(const StartupInformation&) noexcept;
 		void Connect(const ConnectInformation&) noexcept;
+		void Stop();
 
 		void Process() noexcept;
 	private:
@@ -120,7 +131,8 @@ namespace knet
 		bool HandleDisconnect(knet::SocketAddress address, knet::DisconnectReason reason) noexcept;
 		bool HandleNewConnection(knet::InternalRecvPacket * pPacket) noexcept;
 		bool HandlePacket(knet::ReliablePacket &packet, knet::SocketAddress& remoteAddress) noexcept;
-	
+		
+
 	};
 
 };

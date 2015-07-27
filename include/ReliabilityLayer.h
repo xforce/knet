@@ -30,15 +30,14 @@
 
 #pragma once
 
-#include "Common.h"
+#include "sockets/BerkleySocket.h"
 
-#include "Sockets/BerkleySocket.h"
-#include "EventHandler.h"
+#include "internal/EventHandler.h"
+#include "internal/DatagramHeader.h"
+#include "internal/ReliablePacket.h"
+#include "internal/DatagramPacket.h"
 
-#include "DatagramHeader.h"
-#include "ReliablePacket.h"
-#include "DatagramPacket.h"
-
+// STL/CRT includes
 #include <mutex>
 #include <queue>
 #include <bitset>
@@ -50,7 +49,7 @@ namespace knet
 	enum class ReliabilityEvents : uint8_t
 	{
 		RECEIVE = 0,
-		CONNECTION_LOST_TIMEOUT,
+		DISCONNECTED,
 		HANDLE_PACKET,
 		NEW_CONNECTION,
 		MAX_EVENTS,
@@ -128,11 +127,11 @@ namespace knet
 		std::shared_ptr<ISocket> m_pSocket = nullptr;
 		SocketAddress m_RemoteSocketAddress;
 
-		uint8_t orderingChannel = 0;
+		OrderedChannelType orderingChannel = 0;
 
 		FlowControlHelper flowControlHelper;
 
-		EventHandler<ReliabilityEvents> eventHandler;
+		internal::EventHandler<ReliabilityEvents> eventHandler;
 
 		using milliSecondsPoint = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
 
@@ -153,8 +152,8 @@ namespace knet
 		std::array<std::vector<ReliablePacket>, static_cast<std::size_t>(PacketPriority::IMMEDIATE)> sendBuffer;
 		std::array<std::vector<ReliablePacket>, 255> orderedPacketBuffer;
 		
-		std::array<uint16_t, 255> lastOrderedIndex;
-		std::array<uint16_t, 255> highestSequencedReadIndex;
+		std::array<OrderedIndexType, 255> lastOrderedIndex;
+		std::array<SequenceIndexType, 255> highestSequencedReadIndex;
 
 
 		std::unordered_map<uint16_t, std::vector<ReliablePacket>> splitPacketBuffer;
@@ -199,13 +198,13 @@ namespace knet
 		\return The current channel on which the remote reliability layer will order incoming ordered packets
 		Packets sent before may used a different channel
 		*/
-		uint8_t GetOrderingChannel() const;
+		OrderedChannelType GetOrderingChannel() const;
 
 		//! Sets the channel used to order sent packets
 		/*!
 		\param[in] ucChannel The channel on which the next ordered packets will be ordered on the remote reliability layer.
 		*/
-		void SetOrderingChannel(uint8_t ucChannel);
+		void SetOrderingChannel(OrderedChannelType ucChannel);
 
 
 		//! Gets the socket used to send packets

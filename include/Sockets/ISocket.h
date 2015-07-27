@@ -30,11 +30,9 @@
 
 #pragma once
 
-#include "Common.h"
-
 #include "SocketAddress.h"
 
-#include "../EventHandler.h"
+#include "../internal/EventHandler.h"
 
 #ifdef WIN32
 #include <WinSock2.h>
@@ -93,7 +91,7 @@ namespace knet
 		virtual void StartReceiving() = 0;
 		virtual void StopReceiving(bool bWait = false) = 0;
 
-		virtual EventHandler<SocketEvents>& GetEventHandler() = 0;
+		virtual internal::EventHandler<SocketEvents>& GetEventHandler() = 0;
 	};
 
 

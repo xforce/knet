@@ -1,30 +1,22 @@
 #pragma once
 
-#include "Common.h"
 #include "DatagramHeader.h"
 #include "ReliablePacket.h"
+
+#include "helper_types.h"
 
 #include <vector>
 
 namespace knet
 {
-	struct DatagramPacket
+	struct DatagramPacket : public internal::non_copyable
 	{
 		DatagramHeader header;
 
 		std::vector<ReliablePacket> packets;
 
-		DatagramPacket & operator=(const DatagramPacket &other) = delete;
-		DatagramPacket(const DatagramPacket &other) = delete;
-
-		DatagramPacket()
-		{
-
-		}
-
 		void Serialize(BitStream & bitStream)
 		{
-
 			header.Serialize(bitStream);
 
 			if (!header.isACK && !header.isNACK)

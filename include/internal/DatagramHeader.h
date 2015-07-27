@@ -30,7 +30,6 @@
 
 #pragma once
 
-#include "Common.h"
 #include "BitStream.h"
 
 #include <cstdint>
@@ -59,7 +58,7 @@ namespace knet
 
 			// Now fill to 1 byte to improve performance
 			// This can later be used for more information in the header
-			bitStream.AddWriteOffset(4);
+			bitStream.AlignWriteToByteBoundary();
 
 			/* To save bandwith for ack/nack */
 			if (!isACK && !isNACK && isReliable)
@@ -73,7 +72,7 @@ namespace knet
 			bitStream.Read(isReliable);
 			bitStream.Read(isSplit);
 
-			bitStream.SetReadOffset(bitStream.ReadOffset() + 4);
+			bitStream.AlignReadToByteBoundary();
 
 			if (!isACK && !isNACK && isReliable)
 				bitStream.Read(sequenceNumber);
@@ -81,6 +80,7 @@ namespace knet
 
 		size_t GetSizeToSend()
 		{
+			// Meh hardcoded size
 			return 1 + ((!isACK && !isNACK && isReliable) ? sizeof(sequenceNumber) : 0);
 		}
 	};

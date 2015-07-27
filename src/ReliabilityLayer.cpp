@@ -182,11 +182,10 @@ namespace knet
 			// Check for timeout
 			if(((curTime - lastReceiveFromRemote) >= _timeout))
 			{
-				DEBUG_LOG("Disconnect: Timeout");
 				// NOW send disconnect event so it will be removed in our peer
 				// The Peer which handles this event should stop listening for this socket by calling StopReceiving
 				// Then the peer should remove the Remote stuff on next process not in this handler
-				eventHandler.Call(ReliabilityEvents::CONNECTION_LOST_TIMEOUT, m_RemoteSocketAddress, DisconnectReason::TIMEOUT);
+				eventHandler.Call(ReliabilityEvents::DISCONNECTED, m_RemoteSocketAddress, DisconnectReason::TIMEOUT);
 
 				return;
 			}
@@ -237,8 +236,6 @@ namespace knet
 
 				// set the time the packet was sent
 				resendPacket.first = curTime;
-
-				DEBUG_LOG("Resent packet %d on {%p}", resendPacket.second->header.sequenceNumber, this);
 			}
 		}
 	}
@@ -278,10 +275,6 @@ namespace knet
 						{
 							lastIndex = packet.orderedInfo.index;
 
-							//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
-							if (packet.orderedInfo.index == 0)
-								DEBUG_LOG("Process ordered 0 on %p", this);
-
 							if (eventHandler)
 							{
 								eventHandler.Call<ReliablePacket &, SocketAddress&>(ReliabilityEvents::HANDLE_PACKET, packet, packet.socketAddress);
@@ -298,12 +291,6 @@ namespace knet
 						}
 						else
 						{
-
-							//DEBUG_LOG("Process ordered %d on %p", packet.orderedInfo.index, this);
-
-							if (packet.orderedInfo.index == 0)
-								DEBUG_LOG("Process ordered 0 on %p", this);
-
 							lastIndex = packet.orderedInfo.index;
 							if (eventHandler)
 							{
@@ -769,8 +756,6 @@ namespace knet
 							completePacket.orderedInfo = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->orderedInfo;
 							completePacket.reliability = splitPacketBuffer[packet.splitInfo.packetIndex].begin()->reliability;
 
-							DEBUG_LOG("Got Packet with %d and %d", completePacket.Size(), strlen(completePacket.Data()));
-
 							splitPacketBuffer.erase(packet.splitInfo.packetIndex);
 
 							if (completePacket.reliability == PacketReliability::RELIABLE_ORDERED)
@@ -1032,7 +1017,7 @@ namespace knet
 		}
 	}
 
-	void ReliabilityLayer::SetOrderingChannel(uint8_t ucChannel)
+	void ReliabilityLayer::SetOrderingChannel(OrderedChannelType ucChannel)
 	{
 		orderingChannel = ucChannel;
 	}
@@ -1167,6 +1152,7 @@ namespace knet
 
 		BitStream bitStream{MAX_MTU_SIZE};
 
+		// FIXME: return the split packets, we will handle them somewhere else
 		// TODO: dont send them all together
 		for (auto &splitPacket : splitPackets)
 		{
@@ -1199,7 +1185,7 @@ namespace knet
 
 		pSplitDatagramPacket->header.isSplit = false;
 
-		// Assing the nex created datagram packet so the given packet can be used | ah fuck i dont know how to explain this better
+		// Assing the next created datagram packet so the given packet can be used | ah fuck i dont know how to explain this better
 		*ppDatagramPacket = pSplitDatagramPacket;
 
 		return true;

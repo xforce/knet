@@ -1,7 +1,7 @@
 {
 	'variables' : {
 		#'logger_enabled': '<!pymod_do_main(find_logger)',
-		'kframework_target_type%': 'executable',
+		'kframework_target_type%': 'static_library',
 	},
 	'targets': [
 		{
@@ -22,14 +22,20 @@
 				
 				#Header Files, for VS
 				'include/BitStream.h',
-				'include/Common.h',
-				'include/DatagramHeader.h',
-				'include/DatagramPacket.h',
-				'include/EventHandler.h',
-				'include/function_traits.h',
+
 				'include/Peer.h',
 				'include/ReliabilityLayer.h',
-				'include/ReliablePacket.h',
+				
+				# Internal Header files,
+				# mostly used internally, but can be if necessary accessed from outside
+				# for example when implementing plugins
+				'include/internal/DatagramHeader.h',
+				'include/internal/DatagramPacket.h',
+				'include/internal/EventHandler.h',
+				'include/internal/function_traits.h',
+				'include/internal/ReliablePacket.h',
+				
+				# All the stuff required for the sockets
 				'include/sockets/BerkleySocket.h',
 				'include/sockets/ISocket.h',
 				'include/sockets/SocketAddress.h',
@@ -38,6 +44,7 @@
 				['OS=="win"', {
 					'defines': [
 						'_WINSOCK_DEPRECATED_NO_WARNINGS',
+						'WIN32',
 					],
 					'link_settings':  {
 						'libraries': [ '-lwinmm.lib', '-lws2_32.lib' ],
@@ -67,6 +74,18 @@
 				'test/test_bitstream.cpp',
 				'test/test_connect.cpp',
 			],
+			'conditions': [
+				['OS=="win"', {
+					'defines': [
+						'_WINSOCK_DEPRECATED_NO_WARNINGS',
+						'WIN32',
+					],
+				}],
+			],
+			'VCLinkerTool': {
+            	'ImageHasSafeExceptionHandlers': 'false',
+            	'LinkIncremental': '2',
+          	},
 		},
 	]
 }

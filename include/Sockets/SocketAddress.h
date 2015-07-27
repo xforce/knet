@@ -30,8 +30,6 @@
 
 #pragma once
 
-#include "Common.h"
-
 #ifdef WIN32
 #include <WinSock2.h>
 #endif

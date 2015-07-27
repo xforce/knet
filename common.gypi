@@ -5,7 +5,7 @@
     'component%': 'static_library',
     'msvs_multi_core_compile%': '1',
     'optimized_debug%': '0',
-    'knet_target_type%': 'executable',
+    'knet_target_type%': 'static_library',
     'variables': {
       'variables': {
         'variables': {
@@ -70,6 +70,7 @@
         '_CRT_SECURE_NO_DEPRECATE',
         '_CRT_NONSTDC_NO_DEPRECATE',
         '_USING_V110_SDK71_',
+        'NOMINMAX',
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {

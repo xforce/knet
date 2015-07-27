@@ -50,7 +50,7 @@ namespace knet
 		return ((x) << 3);
 	}
 
-#define BITSTREAM_STACK_SIZE 256
+	constexpr uint32_t BITSTREAM_STACK_SIZE = 256;
 
 	class BitStream
 	{
