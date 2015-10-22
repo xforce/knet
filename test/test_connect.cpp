@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <Peer.h>
+#include <peer.h>
 
 TEST(ConnectTests, BasicConnect)
 {

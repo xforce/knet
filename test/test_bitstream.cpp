@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <BitStream.h>
+#include <bitstream.h>
 
 
 TEST(BitStreamTest, ReadWriteString)
@@ -106,7 +106,7 @@ TEST(BitStreamTest, AlignToByteBoundary)
 
 	EXPECT_EQ(false, bitStream.ReadBit());
 	bitStream.AlignReadToByteBoundary();
-	
+
 	EXPECT_EQ(8, bitStream.ReadOffset());
 
 	EXPECT_EQ(true, bitStream.ReadBit());
