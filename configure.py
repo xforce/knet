@@ -19,7 +19,10 @@ sys.path.insert(0, os.path.join(root_dir, 'tools', 'gyp', 'pylib'))
 from gyp.common import GetFlavor
 
 # imports in tools/configure.d
-sys.path.insert(0, os.path.join(root_dir, 'tools', 'configure.d'))
+sys.path.insert(1, os.path.join(root_dir, 'tools', 'configure.d'))
+
+sys.path.insert(1, os.path.join(root_dir, 'src', 'client', 'plugins'))
+sys.path.insert(1, os.path.join(root_dir, 'src', 'server', 'plugins'))
 
 # parse our options
 parser = optparse.OptionParser()
@@ -53,6 +56,11 @@ parser.add_option('--debug',
     action='store_true',
     dest='debug',
     help='also build debug build')
+
+parser.add_option('--build-x64',
+    action='store_true',
+    dest='x64',
+    help='build x64 version')
 
 parser.add_option('--dest-cpu',
     action='store',
@@ -109,6 +117,22 @@ def warn(msg):
 
 # track if warnings occured
 warn.warned = False
+
+def execute(argv, env=os.environ):
+  try:
+    output = subprocess.check_output(argv, stderr=subprocess.STDOUT, env=env, shell=True)
+    return output
+  except subprocess.CalledProcessError as e:
+    print e.output
+  raise e
+
+
+def execute_stdout(argv, env=os.environ):
+  execute(argv, env)
+
+def update_submodules():
+  print 'Updating submodules...'
+  execute_stdout('git submodule update --init --recursive')
 
 def b(value):
   """Returns the string 'true' if value is truthy, 'false' otherwise."""
@@ -358,15 +382,20 @@ def glob_to_var(dir_base, dir_sub):
   return list
 
 output = {
-  'variables': { 'python': sys.executable },
+  'variables': { 'python': sys.executable,
+                  'deps_path': os.path.abspath('deps/') },
   'include_dirs': [],
   'libraries': [],
   'defines': [],
   'cflags': [],
 }
 
+if options.x64:
+  output['variables']['target_arch'] = 'x64'
+
 # Print a warning when the compiler is too old.
 check_compiler(output)
+update_submodules()
 
 # determine the "flavor" (operating system) we're building for,
 # leveraging gyp's GetFlavor function

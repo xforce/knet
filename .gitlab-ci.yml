@@ -1,0 +1,63 @@
+win-x64-release:
+  script:
+    - "python configure.py --build-x64"
+    - "python build.py"
+  tags:
+    - windows
+    - visual-studio
+
+win-x64-debug:
+  script:
+    - "python configure.py --build-x64"
+    - "python build.py --debug"
+  tags:
+    - windows
+    - visual-studio
+
+win-x86-release:
+  script:
+    - "python configure.py"
+    - "python build.py"
+  tags:
+    - windows
+    - visual-studio
+
+win-x86-debug:
+  script:
+    - "python configure.py"
+    - "python build.py --debug"
+  tags:
+    - windows
+    - visual-studio
+
+linux-x64-gcc-release:
+  script:
+    - "python configure.py --build-x64"
+    - "python build.py"
+  tags:
+    - linux
+    - gcc
+
+linux-x64-gcc-debug:
+  script:
+    - "python configure.py --build-x64"
+    - "python build.py --debug"
+  tags:
+    - linux
+    - gcc
+
+linux-x86-gcc-release:
+  script:
+    - "python configure.py"
+    - "python build.py"
+  tags:
+    - linux
+    - gcc
+
+linux-x86-gcc-debug:
+  script:
+    - "python configure.py"
+    - "python build.py --debug"
+  tags:
+    - linux
+    - gcc

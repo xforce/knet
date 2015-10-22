@@ -28,14 +28,13 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <ReliabilityLayer.h>
+#include <reliability_layer.h>
 
 namespace knet
 {
 	static const std::chrono::milliseconds resendTime = std::chrono::milliseconds(10000);
 
-	ReliabilityLayer::ReliabilityLayer(ISocket * _socket)
-		: m_pSocket(_socket)
+	ReliabilityLayer::ReliabilityLayer()
 	{
 		firstUnsentAck = firstUnsentAck.min();
 		lastReceiveFromRemote = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
@@ -46,6 +45,12 @@ namespace knet
 		highestSequencedReadIndex.fill(0);
 
 		resendBuffer.reserve(512);
+	}
+
+	ReliabilityLayer::ReliabilityLayer(std::weak_ptr<ISocket> socket)
+		: ReliabilityLayer()
+	{
+		m_pSocket = socket;
 	}
 
 	ReliabilityLayer::~ReliabilityLayer()
@@ -144,8 +149,8 @@ namespace knet
 			{
 				resendBuffer.push_back({std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()), std::unique_ptr<DatagramPacket>(pDatagramPacket)});
 			}
-			if (m_pSocket)
-				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+			if (m_pSocket.lock())
+				m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 			return;
 		}
@@ -177,7 +182,7 @@ namespace knet
 	{
 		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
-		if(m_pSocket)
+		if(m_pSocket.lock())
 		{
 			// Check for timeout
 			if(((curTime - lastReceiveFromRemote) >= _timeout))
@@ -231,8 +236,8 @@ namespace knet
 				// Resend the packet
 				resendPacket.second->Serialize(bitStream);
 				
-				if (m_pSocket)
-					m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+				if (m_pSocket.lock())
+					m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 				// set the time the packet was sent
 				resendPacket.first = curTime;
@@ -240,10 +245,8 @@ namespace knet
 		}
 	}
 
-	void ReliabilityLayer::ProcessOrderedPackets(milliSecondsPoint &curTime)
+	void ReliabilityLayer::ProcessOrderedPackets(milliSecondsPoint &)
 	{
-		UNREFERENCED_PARAMETER(curTime);
-
 		int i = 0;
 		uint16_t lastIndex = 0;
 		uint8_t channel = 0;
@@ -388,64 +391,21 @@ namespace knet
 				{
 					nextPriority = prio;
 
-					if (sendBuffer[prio].size() > bufIndex[prio])						
-						break;	
-				}
-
-				if (sendBuffer[nextPriority].size() == 0 || sendBuffer[nextPriority].size() <= bufIndex[nextPriority])
-					break;
-
-
-				packet = std::move(sendBuffer[nextPriority].at(bufIndex[nextPriority]++));
-
-				//sendBuffer[nextPriority].erase(sendBuffer[nextPriority].begin());
-
-				// Now remove the packet from the list
-
-				if (packet.reliability == PacketReliability::RELIABLE
-					|| packet.reliability == PacketReliability::RELIABLE_ORDERED
-					|| packet.reliability == PacketReliability::RELIABLE_SEQUENCED)
-				{
-					pCurrentPacket = pReliableDatagramPacket;
-				}
-				else
-				{
-					pCurrentPacket = pUnrealiableDatagramPacket;
-				}
-
-				auto sendPacket = [&]()
-				{
-					pCurrentPacket->Serialize(bitStream);
-
-					if (m_pSocket)
-						m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
-
-
-					if (pCurrentPacket == pReliableDatagramPacket)
+					if (sendBuffer[prio].size() > static_cast<size_t>(bufIndex[prio]))
 					{
-						// Add the packet to the resend buffer
-						resendBuffer.push_back(std::move(std::make_pair(curTime, std::unique_ptr<DatagramPacket>(pCurrentPacket))));
-
-						pReliableDatagramPacket = new DatagramPacket();
-
-						pReliableDatagramPacket->header.isACK = false;
-						pReliableDatagramPacket->header.isNACK = false;
-						pReliableDatagramPacket->header.isReliable = true;
-						pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+						break;
 					}
-					else
-					{
-						delete pUnrealiableDatagramPacket;
-						pUnrealiableDatagramPacket = new DatagramPacket();
+				}
 
-						pUnrealiableDatagramPacket->header.isACK = false;
-						pUnrealiableDatagramPacket->header.isNACK = false;
-						pUnrealiableDatagramPacket->header.isReliable = false;
-					}
+				if (sendBuffer[nextPriority].size() != 0 && sendBuffer[nextPriority].size() > static_cast<size_t>(bufIndex[nextPriority]))
+				{
 
-					bitStream.Reset();
+					packet = std::move(sendBuffer[nextPriority].at(static_cast<size_t>(bufIndex[nextPriority]++)));
 
-					// Update the current packet again because it could be used again later
+					//sendBuffer[nextPriority].erase(sendBuffer[nextPriority].begin());
+
+					// Now remove the packet from the list
+
 					if (packet.reliability == PacketReliability::RELIABLE
 						|| packet.reliability == PacketReliability::RELIABLE_ORDERED
 						|| packet.reliability == PacketReliability::RELIABLE_SEQUENCED)
@@ -456,37 +416,87 @@ namespace knet
 					{
 						pCurrentPacket = pUnrealiableDatagramPacket;
 					}
-				};
 
-				if (packet.GetSizeToSend() + pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
-				{
-					if (pCurrentPacket->packets.size() > 0)
-						sendPacket();
-
-					if (packet.GetSizeToSend() >= MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend())
+					// Profile this, might have a performance impact
+					// FIXME: clean this up
+					auto sendPacket = [&]()
 					{
-						// The packet is bigger than MAX_MTU_SIZE so we have to split it
-						SplitPacket(packet, &pReliableDatagramPacket);
+						pCurrentPacket->Serialize(bitStream);
+
+						if (m_pSocket.lock())
+							m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+
+
+						if (pCurrentPacket == pReliableDatagramPacket)
+						{
+							// Add the packet to the resend buffer
+							resendBuffer.push_back(std::move(std::make_pair(curTime, std::unique_ptr<DatagramPacket>(pCurrentPacket))));
+
+							pReliableDatagramPacket = new DatagramPacket();
+
+							pReliableDatagramPacket->header.isACK = false;
+							pReliableDatagramPacket->header.isNACK = false;
+							pReliableDatagramPacket->header.isReliable = true;
+							pReliableDatagramPacket->header.sequenceNumber = flowControlHelper.GetSequenceNumber();
+						}
+						else
+						{
+							delete pUnrealiableDatagramPacket;
+							pUnrealiableDatagramPacket = new DatagramPacket();
+
+							pUnrealiableDatagramPacket->header.isACK = false;
+							pUnrealiableDatagramPacket->header.isNACK = false;
+							pUnrealiableDatagramPacket->header.isReliable = false;
+						}
+
+						bitStream.Reset();
+
+						// Update the current packet again because it could be used again later
+						if (packet.reliability == PacketReliability::RELIABLE
+							|| packet.reliability == PacketReliability::RELIABLE_ORDERED
+							|| packet.reliability == PacketReliability::RELIABLE_SEQUENCED)
+						{
+							pCurrentPacket = pReliableDatagramPacket;
+						}
+						else
+						{
+							pCurrentPacket = pUnrealiableDatagramPacket;
+						}
+					};
+
+					if (packet.GetSizeToSend() + pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+					{
+						if (pCurrentPacket->packets.size() > 0)
+							sendPacket();
+
+						if (packet.GetSizeToSend() >= MAX_MTU_SIZE - pCurrentPacket->header.GetSizeToSend())
+						{
+							// The packet is bigger than MAX_MTU_SIZE so we have to split it
+							SplitPacket(packet, &pReliableDatagramPacket);
+						}
+						else
+						{
+							// 
+							// This packet does not exceed max size, so add it to the next packet
+
+							pCurrentPacket->packets.push_back(std::move(packet));
+						}
 					}
 					else
 					{
-						// 
-						// This packet does not exceed max size, so add it to the next packet
-
+						// We can add the packet because it will fit in the current packet
 						pCurrentPacket->packets.push_back(std::move(packet));
+					}
+
+					if (pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
+					{
+						sendPacket();
 					}
 				}
 				else
 				{
-					// We can add the packet because it will fit in the current packet
-					pCurrentPacket->packets.push_back(std::move(packet));
+					break;
 				}
-
-				if (pCurrentPacket->GetSizeToSend() >= MAX_MTU_SIZE)
-				{
-					sendPacket();
-				}
-
 			}
 
 			for (auto p = PacketPriority::LOW; p < PacketPriority::IMMEDIATE; p = (PacketPriority)(p+1))
@@ -502,7 +512,7 @@ namespace knet
 			{
 				bitStream.Reset();
 				pUnrealiableDatagramPacket->Serialize(bitStream);
-				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+				m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 				// Unrealiable packets are not needed anymore
 				delete pUnrealiableDatagramPacket;
@@ -518,7 +528,7 @@ namespace knet
 
 				pReliableDatagramPacket->Serialize(bitStream);
 
-				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+				m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 				resendBuffer.push_back({curTime, std::unique_ptr<DatagramPacket>(pReliableDatagramPacket)});
 			}
@@ -608,28 +618,17 @@ namespace knet
 					}
 
 
-					// Now loop through the whole resend buffer and check if we got an ack for a packet,
-					// if we got an ack the paket will be removed from the resend buffer
 
-					auto size = resendBuffer.size();
-
-					for (int i = size-1; i >= 0; --i)
+					resendBuffer.erase(std::remove_if(std::begin(resendBuffer), std::end(resendBuffer), 
+					[&ranges](std::pair<milliSecondsPoint, std::unique_ptr<DatagramPacket>> &packet)
 					{
-						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
-						
-						// Checks if the given sequence number is in range of the given acks
 						auto isInAckRange = [](decltype(ranges)& vecRange, int32_t sequenceNumber) {
 							return std::any_of(std::begin(vecRange), std::end(vecRange), [sequenceNumber](const auto &k) {
 								return (sequenceNumber >= k.first && sequenceNumber <= k.second);
 							});
 						};
-
-						if (isInAckRange(ranges, sequenceNumber))
-						{
-							resendBuffer.erase(resendBuffer.begin() + i);
-							//DEBUG_LOG("Remove %d from resend list", i);
-						}
-					}
+						return isInAckRange(ranges, packet.second->header.sequenceNumber);
+					}));
 
 					resendBuffer.shrink_to_fit();
 				}
@@ -659,7 +658,7 @@ namespace knet
 
 					auto size = resendBuffer.size();
 
-					for (int i = size-1; i >= 0; --i)
+					for (size_t i = 0; i < size; ++i)
 					{
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
 						
@@ -678,8 +677,8 @@ namespace knet
 							// Resend packet
 							resendBuffer[i].second->Serialize(bitStream);
 				
-							if (m_pSocket)
-								m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+							if (m_pSocket.lock())
+								m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 							// set the time the packet was sent
 							resendBuffer[i].first = curTime;
@@ -705,7 +704,6 @@ namespace knet
 
 					if (dPacket.header.isReliable)
 						acknowledgements.push_back(dPacket.header.sequenceNumber);
-
 
 					if (dPacket.header.isSplit)
 					{
@@ -741,7 +739,8 @@ namespace knet
 							//
 							BitStream bitStream2{MAX_MTU_SIZE};
 
-							std::sort(splitPacketBuffer.at(packet.splitInfo.packetIndex).begin(), splitPacketBuffer.at(packet.splitInfo.packetIndex).end(), [](const ReliablePacket &packet, const ReliablePacket &packet_) -> bool
+							std::sort(splitPacketBuffer.at(packet.splitInfo.packetIndex).begin(), splitPacketBuffer.at(packet.splitInfo.packetIndex).end(), 
+							[](const ReliablePacket &packet, const ReliablePacket &packet_)
 							{
 								return (packet.splitInfo.index < packet_.splitInfo.index);
 							});
@@ -843,16 +842,13 @@ namespace knet
 		return true;
 	}
 
-	std::shared_ptr<ISocket> ReliabilityLayer::GetSocket() const
+	std::weak_ptr<ISocket> ReliabilityLayer::GetSocket() const
 	{
 		return m_pSocket;
 	}
 
-	void ReliabilityLayer::SetSocket(std::shared_ptr<ISocket> _socket)
+	void ReliabilityLayer::SetSocket(std::weak_ptr<ISocket> _socket)
 	{
-		if (m_pSocket == _socket)
-			return;
-
 		m_pSocket = _socket;
 	}
 
@@ -913,11 +909,11 @@ namespace knet
 
 		int32_t min = -1;
 		int32_t max = 0;
-		int32_t writtenTo = 0;
-		uint32_t writeCount = 0;
+		size_t writtenTo = 0;
+		size_t writeCount = 0;
 
 		// Now write the range stuff to the bitstream
-		for (uint32_t i = 0; i < acknowledgements.size(); ++i)
+		for (size_t i = 0; i < acknowledgements.size(); ++i)
 		{
 			if ((i+1 < acknowledgements.size()) && acknowledgements[i] == (acknowledgements[i + 1] - 1))
 			{ /* (Next-1) equals current, so its a range */
@@ -996,8 +992,8 @@ namespace knet
 		ackBS.Write(bitStream.Data(), bitStream.Size());
 
 		// 
-		if (m_pSocket)
-			m_pSocket->Send(m_RemoteSocketAddress, ackBS.Data(), ackBS.Size());
+		if (m_pSocket.lock())
+			m_pSocket.lock()->Send(m_RemoteSocketAddress, ackBS.Data(), ackBS.Size());
 
 		// Check if we have to rerun the SendACKs if we exceeded the max size we can sent in one packet
 		if (rerun)
@@ -1039,13 +1035,13 @@ namespace knet
 		std::vector<ReliablePacket> splitPackets;
 		splitPackets.reserve(packet.Size() / (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1);
 
-		uint32_t dataOffset = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
+		size_t dataOffset = static_cast<size_t>((MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1);
 
 		uint16_t splitIndex = 0;
 
 		uint16_t splitPacketNumber = flowControlHelper.GetSplitPacketIndex();
 
-		for (int chunkSize = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1; dataOffset < packet.Size();)
+		for (size_t chunkSize = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1; dataOffset < packet.Size();)
 		{
 
 			ReliablePacket tmpPacket(packet.Data() + dataOffset - chunkSize, chunkSize);
@@ -1079,7 +1075,7 @@ namespace knet
 				dataOffset += chunkSize;
 
 				// and recalculate the chunk size
-				chunkSize = (MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20) + 1;
+				chunkSize = MAX_MTU_SIZE - pDatagramPacket->header.GetSizeToSend() - 20 + 1;
 			}
 			else
 			{
@@ -1163,8 +1159,8 @@ namespace knet
 
 			pSplitDatagramPacket->Serialize(bitStream);
 
-			if (m_pSocket)
-				m_pSocket->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
+			if (m_pSocket.lock())
+				m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
 			// Reset the bitstream so we can use it in the next iteration
 

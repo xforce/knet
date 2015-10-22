@@ -28,9 +28,16 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <Peer.h>
+#include <peer.h>
 
-#include <BitStream.h>
+#include <bitstream.h>
+
+#ifndef WIN32
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h> 
+
+#endif
 
 namespace knet
 {
@@ -59,9 +66,11 @@ namespace knet
 		{
 			system->reliabilityLayer.GetEventHandler().RemoveEventsByOwner(this);
 		}
+
+		remoteSystems.clear();
 	}
 
-	std::shared_ptr<knet::ISocket> Peer::GetSocket() noexcept
+	std::weak_ptr<knet::ISocket> Peer::GetSocket() noexcept
 	{
 		return _socket;
 	}
@@ -117,8 +126,7 @@ namespace knet
 
 		if (reorderRemoteSystems)
 		{
-			std::sort(std::begin(remoteSystems), std::end(remoteSystems), [](const std::shared_ptr<System> &systemLeft, const std::shared_ptr<System> &systemRight) {
-				UNREFERENCED_PARAMETER(systemRight);
+			std::sort(std::begin(remoteSystems), std::end(remoteSystems), [](const std::shared_ptr<System> &systemLeft, const std::shared_ptr<System> &) {
 				return systemLeft->isActive;
 			});
 
@@ -133,6 +141,11 @@ namespace knet
 				if (!peer->isActive)
 					break;
 
+				if (peer->lastPing + std::chrono::milliseconds(500) < std::chrono::steady_clock::now())
+				{
+					SendInternalPing(peer->reliabilityLayer.GetRemoteAddress());
+				}
+
 				peer->reliabilityLayer.Process();
 			}
 		}
@@ -145,7 +158,7 @@ namespace knet
 	}
 
 	//void Peer::Send(System &peer, const char * data, size_t len, bool im) noexcept
-	//{
+	//{f
 	//	if (isConnected)
 	//	{
 	//		peer.reliabilityLayer.Send(data, len, (im ? PacketPriority::MEDIUM : PacketPriority::HIGH), PacketReliability::RELIABLE);
@@ -179,8 +192,6 @@ namespace knet
 
 	bool Peer::HandleDisconnect(SocketAddress address, DisconnectReason reason) noexcept
 	{
-		UNREFERENCED_PARAMETER(reason);
-
 		for (auto &system : remoteSystems)
 		{
 			if (address == system->reliabilityLayer.GetRemoteAddress())
@@ -193,6 +204,8 @@ namespace knet
 				this->reliabilityLayer.RemoveRemote(address);
 
 				--activeSystems;
+
+				_eventHandler.Call(PeerEvents::Disconnected, system, reason);
 
 				return true;
 			}
@@ -217,11 +230,11 @@ namespace knet
 			dh.Serialize(bitStream);
 
 			bitStream.Write(PacketReliability::UNRELIABLE);
-			bitStream.Write<unsigned short>(sizeof(MessageID::CONNECTION_ACCEPTED));
+			bitStream.Write<uint16_t>(sizeof(MessageID));
 			bitStream.Write(MessageID::CONNECTION_ACCEPTED);
 
-			if (GetSocket())
-				GetSocket()->Send(remoteAddress, bitStream.Data(), bitStream.Size());
+			if (_socket)
+				_socket->Send(remoteAddress, bitStream.Data(), bitStream.Size());
 		}
 		else if ((MessageID)pData[0] == MessageID::CONNECTION_ACCEPTED)
 		{
@@ -243,9 +256,35 @@ namespace knet
 		{
 			this->isConnected = false;
 		}
-		else
+		else if((MessageID)pData[0]== MessageID::INTERNAL_PING)
 		{
-			
+			BitStream bitStream{ MAX_MTU_SIZE };
+
+			DatagramHeader dh;
+			dh.isACK = false;
+			dh.isNACK = false;
+			dh.isReliable = false;
+			dh.sequenceNumber = 0;
+
+			dh.Serialize(bitStream);
+
+			bitStream.Write(PacketReliability::UNRELIABLE);
+			bitStream.Write<uint16_t>(sizeof(MessageID));
+			bitStream.Write(MessageID::INTERNAL_PING_RESPONSE);
+
+			if (_socket)
+				_socket->Send(remoteAddress, bitStream.Data(), bitStream.Size());
+		}
+		else if ((MessageID)pData[0] == MessageID::INTERNAL_PING_RESPONSE)
+		{
+			for (auto &system : remoteSystems)
+			{
+				if (remoteAddress == system->reliabilityLayer.GetRemoteAddress())
+				{
+					system->lastPing = std::chrono::steady_clock::now();
+					break;
+				}
+			}
 		}
 
 		return false;
@@ -305,6 +344,26 @@ namespace knet
 	void Peer::Stop()
 	{
 		_socket->StopReceiving(true);
+	}
+
+	void Peer::SendInternalPing(const SocketAddress& remoteAddress)
+	{
+		BitStream bitStream{ MAX_MTU_SIZE };
+
+		DatagramHeader dh;
+		dh.isACK = false;
+		dh.isNACK = false;
+		dh.isReliable = false;
+		dh.sequenceNumber = 0;
+
+		dh.Serialize(bitStream);
+
+		bitStream.Write(PacketReliability::UNRELIABLE);
+		bitStream.Write<uint16_t>(sizeof(MessageID));
+		bitStream.Write(MessageID::INTERNAL_PING);
+
+		if (_socket)
+			_socket->Send(remoteAddress, bitStream.Data(), bitStream.Size());
 	}
 
 #pragma endregion

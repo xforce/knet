@@ -1,4 +1,8 @@
-{   
+{
+  'variables': {
+    'wno_array_bounds%': '',
+    'enable_backtrace%': 0,
+  },
   'target_defaults': {
    'configurations': {
       # Abstract configuration for v8_optimized_debug == 0.
@@ -6,8 +10,9 @@
         'abstract': 1,
         'msvs_settings': {
           'VCCLCompilerTool': {
+            'DebugInformationFormat': '4',
             'Optimization': '0',
-			      'WarningLevel': '<(debug_warning_level_win)',
+			'WarningLevel': '<(debug_warning_level_win)',
             'WarnAsError': 'true',
             'conditions': [
               ['component=="shared_library"', {
@@ -18,8 +23,8 @@
             ],
           },
           'VCLinkerTool': {
-            'ImageHasSafeExceptionHandlers': 'false',
             'LinkIncremental': '2',
+            'ImageHasSafeExceptionHandlers': 'false',
           },
         },
         'conditions': [
@@ -34,6 +39,7 @@
             'cflags': [
               '-fdata-sections',
               '-ffunction-sections',
+              '-fPIC',
             ],
           }],
           ['OS=="mac"', {
@@ -66,6 +72,7 @@
           },
           'VCLinkerTool': {
             'LinkIncremental': '2',
+            'ImageHasSafeExceptionHandlers': 'false',
           },
         },
         'conditions': [
@@ -116,6 +123,7 @@
             'LinkIncremental': '1',
             'OptimizeReferences': '2',
             'EnableCOMDATFolding': '2',
+            'ImageHasSafeExceptionHandlers': 'false',
           },
         },
         'conditions': [
@@ -145,14 +153,14 @@
         'defines': [
           'DEBUG',
           'WIN32_LEAN_AND_MEAN',
-          'NOMINMAX',
         ],
         'conditions': [
           ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="netbsd" or \
             OS=="qnx"', {
-            'cflags': [ '-Woverloaded-virtual', '<(wno_array_bounds)', ],
+            'cflags': [ '<(wno_array_bounds)', ],
+            'cflags_cc': ['-Woverloaded-virtual',],
           }],
-          ['OS=="linux" and v8_enable_backtrace==1', {
+          ['OS=="linux" and enable_backtrace==1', {
             # Support for backtrace_symbols.
             'ldflags': [ '-rdynamic' ],
           }],
@@ -170,6 +178,9 @@
           ['optimized_debug==2', {
             'inherit_from': ['DebugBase2'],
           }],
+        ],
+        'cflags_cc' : [
+            '-std=c++1y',
         ],
       },  # Debug
       'Release': {
@@ -194,6 +205,9 @@
               '-ffunction-sections',
               '-O2',
             ],
+            'cflags_cc' : [
+                '-std=c++1y',
+            ]
           }],
           ['OS=="mac"', {
             'xcode_settings': {
@@ -209,6 +223,7 @@
           ['OS=="win"', {
             'defines': [
               'WIN32_LEAN_AND_MEAN',
+              'NDEBUG',
             ],
             'msvs_settings': {
               'VCCLCompilerTool': {
@@ -230,6 +245,7 @@
                 'LinkIncremental': '1',
                 'OptimizeReferences': '2',
                 'EnableCOMDATFolding': '2',
+                'ImageHasSafeExceptionHandlers': 'false',
                 #'LinkTimeCodeGeneration': '1',       # /LTCG
               },
             },

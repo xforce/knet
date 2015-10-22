@@ -1,7 +1,11 @@
+// Copyright 2015 the Crix-Dev authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 #pragma once
 
-#include "DatagramHeader.h"
-#include "ReliablePacket.h"
+#include "datagram_header.h"
+#include "reliable_packet.h"
 
 #include "helper_types.h"
 

@@ -5,7 +5,6 @@
     'component%': 'static_library',
     'msvs_multi_core_compile%': '1',
     'optimized_debug%': '0',
-    'knet_target_type%': 'static_library',
     'variables': {
       'variables': {
         'variables': {
@@ -62,6 +61,22 @@
       # Xcode insists on this empty entry.
     },
   },
+  'conditions': [
+    ['target_arch=="x64"', {
+      'defines': [
+        'TARGET_ARCH_X64',
+      ],
+      'xcode_settings': {
+        'ARCHS': [ 'x86_64' ],
+      },
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'StackReserveSize': '2097152',
+        },
+      },
+      'msvs_configuration_platform': 'x64',
+    }],  # target_arch=="x64"
+  ],
 },
 'conditions': [
   ['OS=="win"', {
@@ -70,15 +85,17 @@
         '_CRT_SECURE_NO_DEPRECATE',
         '_CRT_NONSTDC_NO_DEPRECATE',
         '_USING_V110_SDK71_',
-        'NOMINMAX',
       ],
+      'msvs_configuration_attributes': {
+        'CharacterSet': '1',
+      },
       'msvs_settings': {
         'VCCLCompilerTool': {
           'MinimalRebuild': 'false',
           'BufferSecurityCheck': 'true',
           'EnableFunctionLevelLinking': 'true',
           'RuntimeTypeInfo': 'true',
-          'DebugInformationFormat': '4',
+          'DebugInformationFormat': '3',
           'Detect64BitPortabilityProblems': 'false',
           'conditions': [
             [ 'msvs_multi_core_compile', {
@@ -101,6 +118,7 @@
           'MapFileName': '$(OutDir)\\$(TargetName).map',
           'ImportLibrary': '$(OutDir)\\lib\\$(TargetName).lib',
           'FixedBaseAddress': '1',
+          'ImageHasSafeExceptionHandlers': 'false',
           # LinkIncremental values:
           #   0 == default
           #   1 == /INCREMENTAL:NO

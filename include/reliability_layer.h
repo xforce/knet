@@ -30,12 +30,12 @@
 
 #pragma once
 
-#include "sockets/BerkleySocket.h"
+#include "sockets/berkley_socket.h"
 
-#include "internal/EventHandler.h"
-#include "internal/DatagramHeader.h"
-#include "internal/ReliablePacket.h"
-#include "internal/DatagramPacket.h"
+#include "internal/event_handler.h"
+#include "internal/datagram_header.h"
+#include "internal/reliable_packet.h"
+#include "internal/datagram_packet.h"
 
 // STL/CRT includes
 #include <mutex>
@@ -66,6 +66,7 @@ namespace knet
 		CONNECTION_ACCEPTED,
 		CONNECTION_REFUSED,
 		INTERNAL_PING,
+		INTERNAL_PING_RESPONSE
 	};
 
 
@@ -111,12 +112,12 @@ namespace knet
 		/* Types/structs used internally in Reliability Layer */
 		struct RemoteSystem
 		{
-			std::shared_ptr<ISocket> _socket = nullptr;
+			std::weak_ptr<ISocket> _socket;
 			SocketAddress address;
 
 			bool operator==(const RemoteSystem& system) const
 			{
-				return(_socket == system._socket && address == system.address);
+				return(address == system.address);
 			}
 		};
 
@@ -124,7 +125,7 @@ namespace knet
 		ReliabilityLayer& operator=(const ReliabilityLayer&) = delete;
 		ReliabilityLayer(const ReliabilityLayer&) = delete;
 
-		std::shared_ptr<ISocket> m_pSocket = nullptr;
+		std::weak_ptr<ISocket> m_pSocket;
 		SocketAddress m_RemoteSocketAddress;
 
 		OrderedChannelType orderingChannel = 0;
@@ -171,7 +172,8 @@ namespace knet
 		bool SplitPacket(ReliablePacket & packet, DatagramPacket ** pDatagramPacket);
 
 	public:
-		ReliabilityLayer(ISocket * _socket = nullptr);
+		ReliabilityLayer();
+		ReliabilityLayer(std::weak_ptr<ISocket>);
 		virtual ~ReliabilityLayer();
 
 		void Send(const char *, size_t, PacketPriority = PacketPriority::MEDIUM, PacketReliability = PacketReliability::RELIABLE);
@@ -211,13 +213,13 @@ namespace knet
 		/*!
 		\return Socket used to send packets
 		*/
-		std::shared_ptr<ISocket> GetSocket() const;
+		std::weak_ptr<ISocket> GetSocket() const;
 
 		//! Sets the socket used to send packets
 		/*!
 		\param[in] _socket Socket used to send packets
 		*/
-		void SetSocket(std::shared_ptr<ISocket> _socket);
+		void SetSocket(std::weak_ptr<ISocket> _socket);
 
 		
 		//! Gets the remote Socket address

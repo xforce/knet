@@ -1,12 +1,12 @@
 {
 	'variables' : {
-		#'logger_enabled': '<!pymod_do_main(find_logger)',
-		'kframework_target_type%': 'static_library',
+		'knet_target_type%': 'static_library',
+		'deps_path%': '/deps',
 	},
 	'targets': [
 		{
-			'target_name': 'kNet',
-			'type': '<(kframework_target_type)',
+			'target_name': 'knet',
+			'type': '<(knet_target_type)',
 			'defines': [
 				'NOMINMAX',
 			],
@@ -15,36 +15,19 @@
 			],
 			'sources': [
 				#Source files
-				'src/kNet.cpp',
-				'src/Peer.cpp',
-				'src/ReliabilityLayer.cpp',
-				'src/sockets/BerkleySocket.cpp',
-				
-				#Header Files, for VS
-				'include/BitStream.h',
+				'src/peer.cpp',
+				'src/reliability_layer.cpp',
+				'src/sockets/berkley_socket.cpp',
 
-				'include/Peer.h',
-				'include/ReliabilityLayer.h',
-				
-				# Internal Header files,
-				# mostly used internally, but can be if necessary accessed from outside
-				# for example when implementing plugins
-				'include/internal/DatagramHeader.h',
-				'include/internal/DatagramPacket.h',
-				'include/internal/EventHandler.h',
-				'include/internal/function_traits.h',
-				'include/internal/ReliablePacket.h',
-				
-				# All the stuff required for the sockets
-				'include/sockets/BerkleySocket.h',
-				'include/sockets/ISocket.h',
-				'include/sockets/SocketAddress.h',
+				#Header Files, for VS
+
+				# Public API
+				'include/network_helper_types.h',
 			],
 			'conditions': [
 				['OS=="win"', {
 					'defines': [
 						'_WINSOCK_DEPRECATED_NO_WARNINGS',
-						'WIN32',
 					],
 					'link_settings':  {
 						'libraries': [ '-lwinmm.lib', '-lws2_32.lib' ],
@@ -58,16 +41,16 @@
 			],
 		},
 		{
-			'target_name': 'kNet_tests',
+			'target_name': 'knet_tests',
 			'type': 'executable',
 			'dependencies': [
-				'deps/gtest/gtest.gyp:*',
-				'kNet',
+				'<!@pymod_do_main(make_rel_path "<(deps_path)/gtest/gtest.gyp"):gtest',
+				'knet',
 			],
 			'include_dirs': [
 				'include',
-				'deps/gtest',
-				'deps/gtest/include',
+				'<(deps_path)/gtest',
+				'<(deps_path)/gtest/include',
 			],
 			'sources': [
 				'test/test.cpp',
@@ -79,8 +62,17 @@
 					'defines': [
 						'_WINSOCK_DEPRECATED_NO_WARNINGS',
 						'WIN32',
+						'NOMINMAX',
 					],
 				}],
+                ['OS!="win"', {
+
+                'link_settings': {
+                    'libraries': [
+                        '-lpthread'
+                    ]
+                },
+              }],
 			],
 			'VCLinkerTool': {
             	'ImageHasSafeExceptionHandlers': 'false',

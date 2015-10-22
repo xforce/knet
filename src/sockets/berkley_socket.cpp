@@ -28,26 +28,30 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <Sockets/BerkleySocket.h>
+#include <sockets/berkley_socket.h>
 
 #include <thread>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h> 
+#include <unistd.h>
 #else
 #include <ws2tcpip.h>
 #endif
 
 namespace knet
 {
-#ifdef WIN32
+#ifdef _WIN32
 	WSADATA wsaData;
 #endif
 
 	BerkleySocket::BerkleySocket()
 	{
 // NOTE: this will later be moved so dont care atm
-#ifdef WIN32
+#ifdef _WIN32
 		WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
 	}
@@ -55,7 +59,7 @@ namespace knet
 	BerkleySocket::~BerkleySocket()
 	{
 		endThread = true;
-#ifdef WIN32
+#ifdef _WIN32
 		WSACleanup();
 #endif
 	}
@@ -65,10 +69,10 @@ namespace knet
 		int sentLen = 0;
 		do
 		{
-			sentLen = sendto(m_Socket, pData, length, 0, (const sockaddr*)&remoteSystem.address.addr4, sizeof(remoteSystem.address.addr4));
+			sentLen = sendto(m_Socket, pData, static_cast<int>(length), 0, (const sockaddr*)&remoteSystem.address.addr4, static_cast<int>(sizeof(remoteSystem.address.addr4)));
 			if (sentLen <= -1)
 			{
-#ifdef WIN32
+#ifdef _WIN32
 				int errCode = WSAGetLastError();
 
 				LPSTR errString = NULL;
@@ -104,7 +108,7 @@ namespace knet
 		m_BoundAddress.address.addr4.sin_family = bindArgs.addressFamily;
 
 		// Setup the socket
-		m_Socket = socket(bindArgs.addressFamily, bindArgs.socketType, bindArgs.socketProtocol);
+		m_Socket = static_cast<int>(socket(bindArgs.addressFamily, bindArgs.socketType, bindArgs.socketProtocol));
 
 
 		// TODO: set initial socket options
@@ -140,36 +144,7 @@ namespace knet
 
 			LocalFree(errString);
 #elif (defined(__GNUC__) || defined(__GCCXML__) ) && !defined(_WIN32)
-			closesocket__(rns2Socket);
-			switch (ret)
-			{
-			case EBADF:
-				DEBUG_LOG("bind(): sockfd is not a valid descriptor.\n"); break;
-			case ENOTSOCK:
-				DEBUG_LOG("bind(): Argument is a descriptor for a file, not a socket.\n"); break;
-			case EINVAL:
-				DEBUG_LOG("bind(): The addrlen is wrong, or the socket was not in the AF_UNIX family.\n"); break;
-			case EROFS:
-				DEBUG_LOG("bind(): The socket inode would reside on a read-only file system.\n"); break;
-			case EFAULT:
-				DEBUG_LOG("bind(): my_addr points outside the user's accessible address space.\n"); break;
-			case ENAMETOOLONG:
-				DEBUG_LOG("bind(): my_addr is too long.\n"); break;
-			case ENOENT:
-				DEBUG_LOG("bind(): The file does not exist.\n"); break;
-			case ENOMEM:
-				DEBUG_LOG("bind(): Insufficient kernel memory was available.\n"); break;
-			case ENOTDIR:
-				DEBUG_LOG("bind(): A component of the path prefix is not a directory.\n"); break;
-			case EACCES:
-				DEBUG_LOG("bind(): Search permission is denied on a component of the path prefix.\n"); break;
-
-			case ELOOP:
-				DEBUG_LOG("bind(): Too many symbolic links were encountered in resolving my_addr.\n"); break;
-
-			default:
-				DEBUG_LOG("Unknown bind() error %i.\n", ret); break;
-			}
+			close(m_Socket);
 #endif
 			return false;
 		}
@@ -201,9 +176,8 @@ namespace knet
 
 		while (endThread == false)
 		{
-			const auto recvFromBlocking = [](SOCKET _socket, InternalRecvPacket &packet) -> bool
+			const auto recvFromBlocking = [](int _socket, InternalRecvPacket &packet) -> bool
 			{
-
 				sockaddr_in sa;
 				socklen_t sockLen = sizeof(sa);
 
@@ -232,7 +206,7 @@ namespace knet
 				packet.remoteAddress.address.addr4.sin_family = sa.sin_family;
 				packet.remoteAddress.address.addr4.sin_port = sa.sin_port;
 				packet.remoteAddress.address.addr4.sin_addr.s_addr = sa.sin_addr.s_addr;
-				packet.bytesRead = recvLen;
+				packet.bytesRead = static_cast<size_t>(recvLen);
 				packet.timeStamp = std::chrono::steady_clock::now();
 
 				return true;
@@ -282,13 +256,13 @@ namespace knet
 
 		// Send a package to ourself so the receive loop is processes after endThread was set to true
 		unsigned long zero = 0;
-		Send(m_BoundAddress, (char*)&zero, 4);
+		Send(m_BoundAddress, (char*)&zero, sizeof(zero));
 
 		if (bWait)
 		{
 			while (bRecvThreadRunning)
 			{
-				Send(m_BoundAddress, (char*)&zero, 4);
+				Send(m_BoundAddress, (char*)&zero, sizeof(zero));
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 			}
 		}

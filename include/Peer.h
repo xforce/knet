@@ -30,10 +30,10 @@
 
 #pragma once
 
-#include "internal/EventHandler.h"
+#include "internal/event_handler.h"
 
-#include "Sockets/BerkleySocket.h"
-#include "ReliabilityLayer.h"
+#include "sockets/berkley_socket.h"
+#include "reliability_layer.h"
 
 namespace knet
 {
@@ -77,6 +77,7 @@ namespace knet
 	enum class PeerEvents : uint8_t
 	{
 		ConnectionAccepted,
+		Disconnected
 	};
 
 	class Peer
@@ -89,6 +90,7 @@ namespace knet
 			knet::ReliabilityLayer reliabilityLayer;
 			bool isConnected = false;
 			bool isActive = true;
+			std::chrono::steady_clock::time_point lastPing = std::chrono::steady_clock::now();
 		};
 
 		knet::ReliabilityLayer reliabilityLayer;
@@ -113,7 +115,7 @@ namespace knet
 		Peer() noexcept;
 		virtual ~Peer() noexcept;
 
-		std::shared_ptr<knet::ISocket> GetSocket() noexcept;
+		std::weak_ptr<knet::ISocket> GetSocket() noexcept;
 
 		decltype(_eventHandler)& GetEventHandler() noexcept
 		{
@@ -131,8 +133,9 @@ namespace knet
 		bool HandleDisconnect(knet::SocketAddress address, knet::DisconnectReason reason) noexcept;
 		bool HandleNewConnection(knet::InternalRecvPacket * pPacket) noexcept;
 		bool HandlePacket(knet::ReliablePacket &packet, knet::SocketAddress& remoteAddress) noexcept;
-		
 
+
+		void SendInternalPing(const SocketAddress&);
 	};
 
 };
