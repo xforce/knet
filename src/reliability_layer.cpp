@@ -1,32 +1,6 @@
-/*
-* Copyright (C) 2014 Crix-Dev
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*
-*     * Redistributions of source code must retain the above copyright
-* notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-* copyright notice, this list of conditions and the following disclaimer
-* in the documentation and/or other materials provided with the
-* distribution.
-*     * Neither the name of Crix-Dev nor the names of its
-* contributors may be used to endorse or promote products derived from
-* this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-* A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-* OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+// Copyright 2015 the kNet authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 #include <reliability_layer.h>
 
@@ -55,7 +29,7 @@ namespace knet
 
 	ReliabilityLayer::~ReliabilityLayer()
 	{
-		
+
 	}
 
 	bool ReliabilityLayer::OnReceive(InternalRecvPacket *packet)
@@ -235,7 +209,7 @@ namespace knet
 
 				// Resend the packet
 				resendPacket.second->Serialize(bitStream);
-				
+
 				if (m_pSocket.lock())
 					m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
@@ -476,7 +450,7 @@ namespace knet
 						}
 						else
 						{
-							// 
+							//
 							// This packet does not exceed max size, so add it to the next packet
 
 							pCurrentPacket->packets.push_back(std::move(packet));
@@ -559,7 +533,7 @@ namespace knet
 
 		if (waitingForPacketOrderingIndex > maxRange / 2)
 		{
-			if (newPacketOrderingIndex >= waitingForPacketOrderingIndex - maxRange / 2 + 1 
+			if (newPacketOrderingIndex >= waitingForPacketOrderingIndex - maxRange / 2 + 1
 				&& newPacketOrderingIndex < waitingForPacketOrderingIndex)
 			{
 				return true;
@@ -568,7 +542,7 @@ namespace knet
 
 		else
 		{
-			if (newPacketOrderingIndex >= (waitingForPacketOrderingIndex - (maxRange / 2 + 1)) 
+			if (newPacketOrderingIndex >= (waitingForPacketOrderingIndex - (maxRange / 2 + 1))
 				|| newPacketOrderingIndex < waitingForPacketOrderingIndex)
 			{
 				return true;
@@ -619,7 +593,7 @@ namespace knet
 
 
 
-					resendBuffer.erase(std::remove_if(std::begin(resendBuffer), std::end(resendBuffer), 
+					resendBuffer.erase(std::remove_if(std::begin(resendBuffer), std::end(resendBuffer),
 					[&ranges](std::pair<milliSecondsPoint, std::unique_ptr<DatagramPacket>> &packet)
 					{
 						auto isInAckRange = [](decltype(ranges)& vecRange, int32_t sequenceNumber) {
@@ -661,7 +635,7 @@ namespace knet
 					for (size_t i = 0; i < size; ++i)
 					{
 						auto sequenceNumber = resendBuffer[i].second->header.sequenceNumber;
-						
+
 						// Checks if the given sequence number is in range of the given acks
 						auto isInAckRange = [](decltype(ranges)& vecRange, int32_t sequenceNumber) {
 							return std::any_of(std::begin(vecRange), std::end(vecRange), [sequenceNumber](const auto &k) {
@@ -676,7 +650,7 @@ namespace knet
 
 							// Resend packet
 							resendBuffer[i].second->Serialize(bitStream);
-				
+
 							if (m_pSocket.lock())
 								m_pSocket.lock()->Send(m_RemoteSocketAddress, bitStream.Data(), bitStream.Size());
 
@@ -739,7 +713,7 @@ namespace knet
 							//
 							BitStream bitStream2{MAX_MTU_SIZE};
 
-							std::sort(splitPacketBuffer.at(packet.splitInfo.packetIndex).begin(), splitPacketBuffer.at(packet.splitInfo.packetIndex).end(), 
+							std::sort(splitPacketBuffer.at(packet.splitInfo.packetIndex).begin(), splitPacketBuffer.at(packet.splitInfo.packetIndex).end(),
 							[](const ReliablePacket &packet, const ReliablePacket &packet_)
 							{
 								return (packet.splitInfo.index < packet_.splitInfo.index);
@@ -783,7 +757,7 @@ namespace knet
 						// Handle not split packet
 						for (auto &packet : dPacket.packets)
 						{
-							// 
+							//
 							if (packet.reliability >= PacketReliability::RELIABLE)
 							{
 								if (firstUnsentAck == firstUnsentAck.min())
@@ -991,7 +965,7 @@ namespace knet
 		// Write the bitstream with the ack ranges to the bitstream we have to send
 		ackBS.Write(bitStream.Data(), bitStream.Size());
 
-		// 
+		//
 		if (m_pSocket.lock())
 			m_pSocket.lock()->Send(m_RemoteSocketAddress, ackBS.Data(), ackBS.Size());
 
@@ -1028,7 +1002,7 @@ namespace knet
 		auto curTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
 		// Save the original packet which was given as a param
-		// 
+		//
 		auto pDatagramPacket = *ppDatagramPacket;
 
 		// Split the data in multiple packets
@@ -1046,9 +1020,9 @@ namespace knet
 
 			ReliablePacket tmpPacket(packet.Data() + dataOffset - chunkSize, chunkSize);
 
-			// Set up packet 
+			// Set up packet
 			// We need index to merge them together on the remote side
-			// 
+			//
 			// It works similar to the ordered stuff
 
 			tmpPacket.splitInfo.index = splitIndex++;
@@ -1060,7 +1034,7 @@ namespace knet
 				tmpPacket.reliability = packet.reliability;
 				tmpPacket.orderedInfo = packet.orderedInfo;
 			}
-			
+
 			// In case of Ordered packets only the first packet need the ordered info
 			// This reduces the overhead
 
@@ -1084,9 +1058,9 @@ namespace knet
 
 				ReliablePacket tmpPacket2(packet.Data() + dataOffset - chunkSize, chunkSize);
 
-				// Set up packet 
+				// Set up packet
 				// We need index to merge them together on the remote side
-				// 
+				//
 				// It works similar to the ordered stuff
 
 				tmpPacket2.isSplit = true;
