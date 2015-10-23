@@ -17,6 +17,10 @@ parser.add_option('--debug',
     dest='debug',
     help='build in debug [Without its building release]')
 
+parser.add_option('--tests',
+    action='store_true',
+    dest='run_tests',
+    help='If specified, run the tests after the build')
 
 (options, args) = parser.parse_args()
 
@@ -43,15 +47,27 @@ def execute(argv, env=os.environ):
 def execute_stdout(argv, env=os.environ):
   return execute(argv, env)
 
+def RunTests(configuration):
+    if _platform == "win32":
+        var = execute_stdout(configuration + "/knet_tests.exe")
+        return var
+    else:
+        var = execute_stdout("out/" + configuration + "/knet_tests")
+        return var
+
 def RunMSBuild(configuration):
     msbuild = GetMSBuildPath()
     if msbuild == "":
         return
     var = execute_stdout([msbuild, "knet.sln", "/t:Build", "/p:Configuration=" + configuration])
+    if(var == 0):
+        return RunTests(configuration)
     return var
 
 def RunMake(configuration):
     var = execute_stdout(["make","-C", "out", "-j" + str(multiprocessing.cpu_count())])
+    if(var == 0):
+        return RunTests(configuration)
     return var
 
 if _platform == "win32":
