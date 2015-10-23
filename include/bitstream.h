@@ -32,6 +32,7 @@ namespace knet
 		size_t _readOffset = 0;
 		size_t _bitsAllocated = 0;
 		size_t _bitsUsed = 0;
+		size_t _maxWritten = 0;
 
 		baseType stackData[BITSTREAM_STACK_SIZE];
 	public:
@@ -48,6 +49,7 @@ namespace knet
 		{
 			_readOffset = 0;
 			_bitsUsed = 0;
+			_maxWritten = 0;
 		}
 
 		size_t ReadOffset() noexcept

@@ -95,6 +95,7 @@ namespace knet
 		memcpy(this->pData, other.pData, BitsToBytes(other._bitsUsed));
 		this->_bitsUsed = other._bitsUsed;
 		this->_readOffset = other._readOffset;
+		this->_maxWritten = other._maxWritten;
 	}
 
 	inline BitStream::BitStream(BitStream &&other) noexcept
@@ -112,16 +113,19 @@ namespace knet
 		_bitsAllocated = other._bitsAllocated;
 		_bitsUsed = other._bitsUsed;
 		_readOffset = other._readOffset;
+		_maxWritten = other._maxWritten;
 
 		other._bitsUsed = 0;
 		other._bitsAllocated = 0;
 		other.pData = nullptr;
 		other._readOffset = 0;
+		other._maxWritten = 0;
 	}
 
 	inline BitStream::BitStream(unsigned char* _data, size_t lengthInBytes, bool _copyData) noexcept
 	{
 		_bitsUsed = BytesToBits(lengthInBytes);
+		_maxWritten = _bitsUsed;
 		_readOffset = 0;
 		//copyData = _copyData;
 		_bitsAllocated = BytesToBits(lengthInBytes);
@@ -160,6 +164,7 @@ namespace knet
 		_bitsAllocated = 0;
 		_bitsUsed = 0;
 		_readOffset = 0;
+		_maxWritten = 0;
 	}
 
 	inline bool BitStream::AllocateBits(size_t numberOfBits) noexcept
@@ -168,15 +173,12 @@ namespace knet
 
 		if (numberOfBits + _bitsUsed > 0 && ((_bitsAllocated - 1) >> 3) < ((newBitsAllocated - 1) >> 3))   // If we need to allocate 1 or more new bytes
 		{
-
 			newBitsAllocated = (numberOfBits + _bitsUsed) * 2;
 			if (newBitsAllocated - (numberOfBits + _bitsUsed) > 1048576)
 				newBitsAllocated = numberOfBits + _bitsUsed + 1048576;
 
 			if (BitsToBytes(newBitsAllocated) > BITSTREAM_STACK_SIZE)
 			{
-
-
 				decltype(pData) data = pData;
 
 				if (data == stackData)
@@ -209,20 +211,25 @@ namespace knet
 				if (newBitsAllocated > _bitsAllocated)
 					_bitsAllocated = newBitsAllocated;
 			}
-			else
+			else {
 				return true;
+			}
 		}
-
-
 		return true;
 	}
 
 	inline bool BitStream::PrepareWrite(size_t bitsToWrite) noexcept
 	{
+		if(_bitsUsed >= _maxWritten) {
+			_maxWritten += bitsToWrite;
+		}
+
 		if ((_bitsAllocated - _bitsUsed) >= bitsToWrite)
 			return true;
 		else
 		{
+			// We basically need something like max written to!
+			//
 			return AllocateBits(bitsToWrite);
 		}
 	}
@@ -304,7 +311,7 @@ namespace knet
 
 	inline size_t BitStream::Size() noexcept
 	{
-		return BitsToBytes(_bitsUsed);
+		return BitsToBytes(_maxWritten);
 	}
 
 
@@ -357,7 +364,7 @@ namespace knet
 		if ((_readOffset & 7) == 0)
 		{
 			// Read is at normal byte boundary
-			if(_bitsUsed < (BytesToBits(size) + _readOffset))
+			if(_maxWritten < (BytesToBits(size) + _readOffset))
 				return false;
 
 			memcpy(data, this->pData + (BitsToBytes(_readOffset)), (size_t)size);
@@ -378,12 +385,10 @@ namespace knet
 		if (numberOfBits <= 0)
 			return false;
 
-		if (_readOffset + numberOfBits > _bitsUsed)
+		if (_readOffset + numberOfBits > _maxWritten)
 			return false;
 
-
 		const size_t readOffsetMod8 = _readOffset & 7;
-
 
 		if (readOffsetMod8 == 0 && (numberOfBits & 7) == 0)
 		{
@@ -428,7 +433,9 @@ namespace knet
 
 	inline void BitStream::SetWriteOffset(size_t writeOffset) noexcept
 	{
-		PrepareWrite(writeOffset - this->_bitsUsed);
+		if (writeOffset >= this->_bitsUsed) {
+			PrepareWrite(writeOffset - this->_bitsUsed);
+		}
 
 		_bitsUsed = writeOffset;
 	}
@@ -436,7 +443,9 @@ namespace knet
 	// Add write offset in bits
 	inline void BitStream::AddWriteOffset(size_t writeOffset) noexcept
 	{
-		PrepareWrite(this->_bitsUsed + writeOffset);
+		if (writeOffset >= this->_bitsUsed) {
+			PrepareWrite(writeOffset - this->_bitsUsed);
+		}
 
 		_bitsUsed += writeOffset;
 	}
