@@ -7,11 +7,9 @@
 #include "bitstream.h"
 #include <unordered_map>
 
-// Basically the same as the stuff in RakNet
-// Just a bit cleaner
-// FIXME: more comments
+#include <set>
 
-namespace net
+namespace knet
 {
 	class VariableDeltaListEntry
 	{
@@ -19,6 +17,28 @@ namespace net
 		char* _memory = nullptr;
 		size_t _size = 0;
 	public:
+		VariableDeltaListEntry() = default;
+
+		// Basically this things is only used internally, and should never be copied
+		VariableDeltaListEntry(const VariableDeltaListEntry&) = delete;
+		VariableDeltaListEntry& operator=(const VariableDeltaListEntry&) = delete;
+
+		VariableDeltaListEntry(VariableDeltaListEntry&& other)
+		{
+			this->_memory = other._memory;
+			other._memory = nullptr;
+			this->_size = other._size;
+		}
+
+		VariableDeltaListEntry& operator=(VariableDeltaListEntry&& other)
+		{
+			this->_memory = other._memory;
+			other._memory = nullptr;
+			this->_size = other._size;
+
+			return *this;
+		}
+
 		virtual ~VariableDeltaListEntry()
 		{
 			free(_memory);
@@ -29,7 +49,7 @@ namespace net
 		template<typename T>
 		void Set(T& value)
 		{
-			_memory = realloc(_memory, sizeof(T));
+			_memory = (char*)realloc(_memory, sizeof(T));
 			if (_memory)
 				memcpy(_memory, &value, sizeof(T));
 			_size = sizeof(T);
@@ -73,38 +93,26 @@ namespace net
 		{
 			BitStream temp;
 			temp.Write(value);
-			if (_writeIndex > _variableList.size())
+			if (_variableList[_writeIndex].Size() != temp.Size())
 			{
-				VariableDeltaListEntry entry;
-				entry.Set(temp.Data(), temp.Size());
-				_variableList[_writeIndex] = entry;
+				// The value is different, because the size is different
+				// Update the data
+				_variableList[_writeIndex].Set(temp.Data(), temp.Size());
 				++_writeIndex;
 				return true;
-				// The value is new so return true and write it in our list
+			}
+			else if (memcmp(_variableList[_writeIndex].Data(), temp.Data(), temp.Size()) == 0)
+			{
+				// The value is the same
+				++_writeIndex;
+				return false;
 			}
 			else
 			{
-				if (_variableList[_writeIndex].Size() != temp.Size())
-				{
-					// The value is different, because the size is different
-					// Update the data
-					_variableList[_writeIndex].Set(temp.Data(), temp.Size());
-					++_writeIndex;
-					return true;
-				}
-				else if (memcmp(_variableList[_writeIndex].Data(), temp.Data(), temp.Size()) == 0)
-				{
-					// The value is the same
-					++_writeIndex;
-					return false;
-				}
-				else
-				{
-					// The value is different
-					_variableList[_writeIndex].Set(temp.Data(), temp.Size());
-					++_writeIndex;
-                    return true;
-				}
+				// The value is different
+				_variableList[_writeIndex].Set(temp.Data(), temp.Size());
+				++_writeIndex;
+				return true;
 			}
 		}
 	};
@@ -113,15 +121,15 @@ namespace net
 	{
 	private:
 		std::unordered_map<uint64_t, VariableDeltaList> _variableLists;
-		std::unordered_map<uint64_t, BitStream&> _serializeBitStreams;
-		std::unordered_map<uint64_t, BitStream&> _deserializeBitStreams;
+		std::unordered_map<uint64_t, BitStream*> _serializeBitStreams;
+		std::unordered_map<uint64_t, BitStream*> _deserializeBitStreams;
 
 	public:
 
 		// The identifier here is used to have more than one VariableList if you want to sync per entry
 		void BeginSerialze(BitStream &bitStream, uint64_t identifier = 0)
 		{
-			_serializeBitStreams[identifier] = bitStream;
+			_serializeBitStreams[identifier] = &bitStream;
 			_variableLists[identifier].Start();
 		}
 		// Should be a move instruction
@@ -132,7 +140,7 @@ namespace net
 
 		void BeginDeserialze(BitStream &bitStream, uint64_t identifier = 0)
 		{
-			_deserializeBitStreams[identifier] = bitStream;
+			_deserializeBitStreams[identifier] = &bitStream;
 		}
 
 		void EndDeserialize(uint64_t identifier = 0)
@@ -141,40 +149,56 @@ namespace net
 		}
 
 		template<typename T>
-		bool SerializeVariable(T& value, uint64_t identifier = 0)
+		inline bool SerializeVariable(const T& value, uint64_t identifier = 0)
 		{
 			bool differ = _variableLists[identifier].WriteVariable(value);
 			auto& bitStream = _serializeBitStreams[identifier];
-			bitStream.Write(differ);
+			bitStream->Write(differ);
 			if (differ)
 			{
-				bitStream.Write(value);
+				bitStream->Write(value);
 			}
 
 			return differ;
 		}
 
 		template<typename T>
-		bool WriteDelta(T& value, uint64_t identifier = 0)
+		inline bool Write(const T& value, uint64_t identifier = 0)
 		{
-			SerializeVariable(value, identifier);
+			return SerializeVariable(value, identifier);
 		}
 
 		template<typename T>
-		bool Write(T& value, uint64_t identifier = 0)
+		inline bool DeserializeVariable(T &variable, uint64_t identifier = 0)
 		{
-			SerializeVariable(value, identifier);
-		}
-
-		template<typename T>
-		bool DeserializeVariable(T &variable, BitStream& bitStream, uint64_t identifier = 0)
-		{
-			if (bitStream.ReadBit())
+			auto& bitStream = _deserializeBitStreams[identifier];
+			if (bitStream->ReadBit())
 			{
-				bitStream.Read(variable);
+				bitStream->Read(variable);
 				return true;
 			}
 			return false;
 		}
+
+		template<typename T>
+		inline bool Read(T& value, uint64_t identifier = 0)
+		{
+			return DeserializeVariable(value, identifier);
+		}
+
 	};
+
+	template<>
+	inline bool VariableDeltaSerializer::SerializeVariable<bool>(const bool& value, uint64_t identifier)
+	{
+		auto& bitStream = _serializeBitStreams[identifier];
+		return bitStream->Write(value);
+	}
+
+	template<>
+	inline bool VariableDeltaSerializer::DeserializeVariable<bool>(bool &variable, uint64_t identifier)
+	{
+		auto& bitStream = _deserializeBitStreams[identifier];
+		return bitStream->Read(variable);
+	}
 };

@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <bitstream.h>
+#include <variable_delta_serializer.h>
 
 
 TEST(BitStreamTest, ReadWriteString)
@@ -125,4 +126,114 @@ TEST(BitStreamTest, BigDataReadWrite)
 	bitStream.Read(bigDataRead);
 
 	EXPECT_EQ(bigDataWrite[0], bigDataRead[0]);
+}
+
+TEST(VariableDeltaSerializeTest, BasicReadWriteTest)
+{
+	knet::VariableDeltaSerializer serializer;
+
+	knet::BitStream bitStream;
+	knet::BitStream bitStream2;
+	serializer.BeginSerialze(bitStream);
+
+	std::string testString = "This is a text";
+	uint32_t rValue = 10000;
+
+	serializer.Write<uint32_t>(rValue);
+	serializer.Write(testString);
+
+	serializer.EndSerialize();
+
+	// Second writer
+	serializer.BeginSerialze(bitStream2, 1);
+
+	serializer.Write<uint32_t>(rValue, 1);
+	serializer.Write(testString, 1);
+
+	serializer.EndSerialize(1);
+
+
+
+	serializer.BeginDeserialze(bitStream);
+
+	serializer.Read(rValue);
+	serializer.Read(testString);
+	
+	serializer.EndDeserialize();
+
+	EXPECT_EQ("This is a text", testString);
+	EXPECT_EQ(10000, rValue);
+
+
+	serializer.BeginDeserialze(bitStream2, 1);
+
+	serializer.Read(rValue, 1);
+	serializer.Read(testString, 1);
+
+	serializer.EndDeserialize(1);
+
+	EXPECT_EQ("This is a text", testString);
+	EXPECT_EQ(10000, rValue);
+}
+
+TEST(VariableDeltaSerializeTest, AdvancedReadWriteTest)
+{
+	knet::VariableDeltaSerializer serializer;
+
+	knet::BitStream bitStream;
+
+	float fValue1 = 1;
+	uint32_t rValue = 1;
+
+	// changing values
+	for (int i = 0; i < 10; ++i)
+	{
+		serializer.BeginSerialze(bitStream, 1);
+
+		serializer.Write<uint32_t>(i, 1);
+		serializer.Write<float>(static_cast<float>(i), 1);
+
+		serializer.EndSerialize(1);
+
+		rValue = 0;
+		fValue1 = 0;
+
+		serializer.BeginDeserialze(bitStream, 1);
+
+		serializer.Read(rValue, 1);
+		serializer.Read(fValue1, 1);
+
+		serializer.EndDeserialize(1);
+
+		EXPECT_EQ(i, fValue1);
+		EXPECT_EQ(i, rValue);
+
+		bitStream.Reset();
+	}
+
+	// Same values all over again
+	for (int i = 0; i < 10; ++i)
+	{
+		serializer.BeginSerialze(bitStream, 1);
+
+		serializer.Write<uint32_t>(10000, 1);
+		serializer.Write<float>(static_cast<float>(10000), 1);
+
+		serializer.EndSerialize(1);
+
+		rValue = 0;
+		fValue1 = 0;
+
+		serializer.BeginDeserialze(bitStream, 1);
+
+		serializer.Read(rValue, 1);
+		serializer.Read(fValue1, 1);
+
+		serializer.EndDeserialize(1);
+
+		EXPECT_EQ(10000, fValue1);
+		EXPECT_EQ(10000, rValue);
+
+		bitStream.Reset();
+	}
 }
