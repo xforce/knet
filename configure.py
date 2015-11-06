@@ -57,11 +57,6 @@ parser.add_option('--debug',
     dest='debug',
     help='also build debug build')
 
-parser.add_option('--build-x64',
-    action='store_true',
-    dest='x64',
-    help='build x64 version')
-
 parser.add_option('--dest-cpu',
     action='store',
     dest='dest_cpu',
@@ -390,8 +385,16 @@ output = {
   'cflags': [],
 }
 
-if options.x64:
-  output['variables']['target_arch'] = 'x64'
+host_arch = host_arch_win() if os.name == 'nt' else host_arch_cc()
+target_arch = options.dest_cpu or host_arch
+
+# ia32 is preferred by the build tools (GYP) over x86 even if we prefer the latter
+# the Makefile resets this to x86 afterward
+if target_arch == 'x86':
+  target_arch = 'ia32'
+
+output['variables']['host_arch'] = host_arch
+output['variables']['target_arch'] = target_arch
 
 # Print a warning when the compiler is too old.
 check_compiler(output)
