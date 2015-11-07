@@ -226,13 +226,15 @@ TEST(VariableDeltaSerializeTest, AdvancedReadWriteTest)
 
 		serializer.BeginDeserialze(bitStream, 1);
 
-		serializer.Read(rValue, 1);
-		serializer.Read(fValue1, 1);
+		if (serializer.Read(rValue, 1)) {
+			EXPECT_EQ(10000, rValue);
+		}
+
+		if (serializer.Read(fValue1, 1)) {
+			EXPECT_EQ(10000, fValue1);
+		}
 
 		serializer.EndDeserialize(1);
-
-		EXPECT_EQ(10000, fValue1);
-		EXPECT_EQ(10000, rValue);
 
 		bitStream.Reset();
 	}
