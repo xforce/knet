@@ -107,12 +107,12 @@ TEST(BitStreamTest, AlignToByteBoundary)
 	bitStream.AlignWriteToByteBoundary();
 
 
-	EXPECT_EQ(false, bitStream.ReadBit());
+	EXPECT_FALSE(bitStream.ReadBit());
 	bitStream.AlignReadToByteBoundary();
 
 	EXPECT_EQ(8, bitStream.ReadOffset());
 
-	EXPECT_EQ(true, bitStream.ReadBit());
+	EXPECT_TRUE(bitStream.ReadBit());
 }
 
 TEST(BitStreamTest, BigDataReadWrite)
