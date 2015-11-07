@@ -37,7 +37,7 @@ def GetMSBuildPath():
 
 def execute(argv, env=os.environ):
   try:
-    subprocess.check_call(argv)
+    subprocess.check_call(argv, env=env)
     return 0
   except subprocess.CalledProcessError as e:
     print e.returncode
@@ -65,7 +65,9 @@ def RunMSBuild(configuration):
     return var
 
 def RunMake(configuration):
-    var = execute_stdout(["make","-C", "out", "-j" + str(multiprocessing.cpu_count())])
+    env = os.environ.copy()
+    env['BUILDTYPE'] = configuration
+    var = execute_stdout(["make","-C", "out", "-j" + str(multiprocessing.cpu_count())], env)
     if(var == 0):
         return RunTests(configuration)
     return var
